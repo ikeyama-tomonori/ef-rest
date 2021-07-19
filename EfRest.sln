@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31321.278
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EfRest", "src\EfRest\EfRest.csproj", "{0913FC7D-94D4-4620-8F52-B84C09E02B5D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EfRest.Test", "test\EfRest.Test\EfRest.Test.csproj", "{B58D6F38-2DF6-4BC3-8B05-64C2CA5A9A42}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EfRest.Example.Model", "example\EfRest.Example.Model\EfRest.Example.Model.csproj", "{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudCqs", "..\cloud-cqs\src\CloudCqs\CloudCqs.csproj", "{CAF677AC-BAEA-4A04-81D8-50CB9388A030}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0913FC7D-94D4-4620-8F52-B84C09E02B5D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0913FC7D-94D4-4620-8F52-B84C09E02B5D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0913FC7D-94D4-4620-8F52-B84C09E02B5D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0913FC7D-94D4-4620-8F52-B84C09E02B5D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B58D6F38-2DF6-4BC3-8B05-64C2CA5A9A42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B58D6F38-2DF6-4BC3-8B05-64C2CA5A9A42}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B58D6F38-2DF6-4BC3-8B05-64C2CA5A9A42}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B58D6F38-2DF6-4BC3-8B05-64C2CA5A9A42}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D5863DF7-4B3D-431A-BA0B-E21BBE4EC8B9}
+	EndGlobalSection
+EndGlobal
