@@ -9,8 +9,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EfRest.Test", "test\EfRest.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EfRest.Example.Model", "example\EfRest.Example.Model\EfRest.Example.Model.csproj", "{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CloudCqs", "..\cloud-cqs\src\CloudCqs\CloudCqs.csproj", "{CAF677AC-BAEA-4A04-81D8-50CB9388A030}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F47EDFBC-B2F5-41F6-86A0-0E1C4D436E76}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CAF677AC-BAEA-4A04-81D8-50CB9388A030}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
