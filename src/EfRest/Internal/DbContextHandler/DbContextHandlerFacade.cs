@@ -1,13 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
-using CloudCqs.Facade;
-using CloudCqs;
-using System.Net;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Specialized;
+using CloudCqs;
+using CloudCqs.Facade;
 
 namespace EfRest.Internal.DbContextHandler
 {

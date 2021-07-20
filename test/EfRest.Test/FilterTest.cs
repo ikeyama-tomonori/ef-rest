@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -7,6 +6,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Web;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EfRest.Test
 {

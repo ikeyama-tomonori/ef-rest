@@ -1,13 +1,9 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
+﻿using System;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Collections.Generic;
-using Microsoft.Extensions.Primitives;
-using System.Threading.Tasks;
 using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EfRest.Test
 {

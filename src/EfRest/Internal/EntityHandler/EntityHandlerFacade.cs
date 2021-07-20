@@ -1,9 +1,9 @@
-﻿using CloudCqs;
-using CloudCqs.Facade;
-using System;
+﻿using System;
 using System.Collections.Specialized;
 using System.Net;
 using System.Net.Http;
+using CloudCqs;
+using CloudCqs.Facade;
 
 namespace EfRest.Internal.EntityHandler
 {

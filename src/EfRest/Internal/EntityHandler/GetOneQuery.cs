@@ -1,7 +1,4 @@
-﻿using CloudCqs;
-using CloudCqs.Query;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -10,6 +7,9 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CloudCqs;
+using CloudCqs.Query;
+using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal.EntityHandler
 {

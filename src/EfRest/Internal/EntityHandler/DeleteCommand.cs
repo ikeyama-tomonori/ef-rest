@@ -1,8 +1,8 @@
-﻿using CloudCqs;
+﻿using System.Linq;
+using System.Text.Json;
+using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using System.Text.Json;
 
 namespace EfRest.Internal.EntityHandler
 {
