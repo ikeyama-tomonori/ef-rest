@@ -7,13 +7,14 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal.EntityHandler
+namespace EfRest.Internal
 {
-    internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection param), HttpResponseMessage>
+    internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage>
         where TEntity : class
     {
         public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
@@ -21,17 +22,17 @@ namespace EfRest.Internal.EntityHandler
             var handler = new Handler()
                 .Then("Create base query", props =>
                 {
-                    var (id, param) = props;
+                    var (id, param, cancellationToken) = props;
                     var query = db
                         .Set<TEntity>()
                         .AsNoTracking();
-                    return (query, id, param);
+                    return (cancellationToken, query, id, param);
                 })
                 .Then("(embed) Parse json object", props =>
                 {
-                    var (query, id, param) = props;
+                    var (cancellationToken, query, id, param) = props;
                     var json = param["embed"];
-                    if (json == null) return (query, id, embed: Array.Empty<string>());
+                    if (json == null) return (cancellationToken, query, id, embed: Array.Empty<string>());
                     try
                     {
                         var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -41,7 +42,7 @@ namespace EfRest.Internal.EntityHandler
                                 { "embed", new[] { $"Invalid json array: {json}" } }
                             });
 
-                        return (query, id, embed);
+                        return (cancellationToken, query, id, embed);
                     }
                     catch (JsonException e)
                     {
@@ -54,7 +55,7 @@ namespace EfRest.Internal.EntityHandler
                 })
                 .Then("(embed) Convert json property names to EF's", props =>
                 {
-                    var (query, id, embed) = props;
+                    var (cancellationToken, query, id, embed) = props;
                     var convertedNames = embed
                         .Select(embedItem =>
                         {
@@ -66,7 +67,7 @@ namespace EfRest.Internal.EntityHandler
                                 {
                                     var (nameList, type) = accumulator;
                                     var propertyInfo = type
-                                        .GetPropertyInfo(
+                                        .GetPropertyInfoByJsonName(
                                             current,
                                             jsonSerializerOptions);
                                     if (propertyInfo == null)
@@ -95,18 +96,18 @@ namespace EfRest.Internal.EntityHandler
                             return includeName;
                         })
                         .ToArray();
-                    return (query, id, embed: convertedNames);
+                    return (cancellationToken, query, id, embed: convertedNames);
                 })
                 .Then("(embed) Apply embed", props =>
                 {
-                    var (query, id, embed) = props;
+                    var (cancellationToken, query, id, embed) = props;
                     var embedQuery = embed
                         .Aggregate(query, (acc, cur) => acc.Include(cur));
-                    return (query: embedQuery, id);
+                    return (cancellationToken, query: embedQuery, id);
                 })
                 .Then("Get key's PropertyInfo", props =>
                 {
-                    var (query, id) = props;
+                    var (cancellationToken, query, id) = props;
                     var dbSet = db.Set<TEntity>();
                     var propertyInfo = dbSet
                         .EntityType
@@ -114,15 +115,15 @@ namespace EfRest.Internal.EntityHandler
                         .Properties
                         .Single()
                         .PropertyInfo;
-                    return (query, id, propertyInfo);
+                    return (cancellationToken, query, id, propertyInfo);
                 })
                 .Then("Convert id to key's value", props =>
                 {
-                    var (query, id, propertyInfo) = props;
+                    var (cancellationToken, query, id, propertyInfo) = props;
                     try
                     {
                         var value = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
-                        return (query, value, propertyInfo);
+                        return (cancellationToken, query, value, propertyInfo);
                     }
                     catch (JsonException e)
                     {
@@ -135,19 +136,19 @@ namespace EfRest.Internal.EntityHandler
                 })
                 .Then("Create where expression", props =>
                 {
-                    var (query, value, propertyInfo) = props;
+                    var (cancellationToken, query, value, propertyInfo) = props;
                     var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                     var memberAccess = Expression.MakeMemberAccess(entityParameter, propertyInfo);
                     var valueExpression = Expression.Convert(Expression.Constant(value), propertyInfo.PropertyType);
                     var body = Expression.Equal(memberAccess, valueExpression);
                     var predicate = Expression.Lambda<Func<TEntity, bool>>(body, entityParameter);
 
-                    return (value, query: query.Where(predicate));
+                    return (cancellationToken, value, query: query.Where(predicate));
                 })
                 .Then("Run query", async props =>
                 {
-                    var (value, query) = props;
-                    var data = await query.SingleOrDefaultAsync();
+                    var (cancellationToken, value, query) = props;
+                    var data = await query.SingleOrDefaultAsync(cancellationToken);
                     if (data == null)
                     {
                         throw new NotFoundException(new()

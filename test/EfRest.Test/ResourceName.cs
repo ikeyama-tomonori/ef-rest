@@ -15,83 +15,105 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Resource_name_as_property_name()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
-            var response = await client.GetFromJsonAsync<Book[]>("/Books");
+            var response = await client.GetFromJsonAsync<Book[]>("Books");
             Assert.IsNotNull(response);
         }
 
         [TestMethod]
         public async Task Resource_name_with_slash()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
-            var response = await client.GetFromJsonAsync<BookDetail[]>("/books/details");
+            var response = await client.GetFromJsonAsync<BookDetail[]>("books/details");
             Assert.IsNotNull(response);
         }
 
         [TestMethod]
         public async Task Camelcase_name()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db)
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
             {
+                CloudCqsOptions = Options.Instance,
                 JsonSerializerOptions = new(JsonSerializerDefaults.General)
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 }
             };
-
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
-
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
-            var response = await client.GetFromJsonAsync<Book[]>("/books");
+            var response = await client.GetFromJsonAsync<Book[]>("books");
             Assert.IsNotNull(response);
         }
 
         [TestMethod]
         public async Task Case_Insensitive_name()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db)
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
             {
+                CloudCqsOptions = Options.Instance,
                 JsonSerializerOptions = new(JsonSerializerDefaults.General)
                 {
                     PropertyNameCaseInsensitive = true
                 }
             };
-
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
-
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
-            var response = await client.GetFromJsonAsync<Book[]>("/books");
+            var response = await client.GetFromJsonAsync<Book[]>("books");
             Assert.IsNotNull(response);
         }
 
         [TestMethod]
-        public async Task Not_start_with_slash()
+        public async Task End_with_slash()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var response = await client.GetFromJsonAsync<Book[]>("Books/");

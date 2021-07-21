@@ -1,12 +1,13 @@
 ﻿using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal.EntityHandler
+namespace EfRest.Internal
 {
-    internal class DeleteCommand<TEntity> : Command<string>
+    internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken cancellationToken)>
         where TEntity : class
     {
         public DeleteCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
@@ -15,7 +16,7 @@ namespace EfRest.Internal.EntityHandler
             var handler = new Handler()
                 .Then("Get key's PropertyInfo", props =>
                 {
-                    var id = props;
+                    var (id, cancellationToken) = props;
                     var propertyInfo = db
                         .Set<TEntity>()
                         .EntityType
@@ -23,11 +24,11 @@ namespace EfRest.Internal.EntityHandler
                         .Properties
                         .Single()
                         .PropertyInfo;
-                    return (id, propertyInfo);
+                    return (cancellationToken, id, propertyInfo);
                 })
                 .Then("Get key's value", props =>
                 {
-                    var (id, propertyInfo) = props;
+                    var (cancellationToken, id, propertyInfo) = props;
                     try
                     {
                         var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
@@ -39,7 +40,7 @@ namespace EfRest.Internal.EntityHandler
                                     { "id", new[] { $"Id can not be null: {id}" } }
                                 });
                         }
-                        return idValue;
+                        return (cancellationToken, idValue);
                     }
                     catch (JsonException e)
                     {
@@ -52,10 +53,10 @@ namespace EfRest.Internal.EntityHandler
                 })
                 .Then("Get current entity", async props =>
                 {
-                    var idValue = props;
+                    var (cancellationToken, idValue) = props;
                     var entity = await db
                         .Set<TEntity>()
-                        .FindAsync(idValue);
+                        .FindAsync(new[] { idValue }, cancellationToken);
                     if (entity == null)
                     {
                         throw new NotFoundException(
@@ -64,17 +65,18 @@ namespace EfRest.Internal.EntityHandler
                                 { "id", new[] { $"Not found: {idValue}" } }
                             });
                     }
-                    return entity;
+                    return (cancellationToken, entity);
                 })
                 .Then("Delete entity", props =>
                 {
-                    var entity = props;
-
+                    var (cancellationToken, entity) = props;
                     db.Set<TEntity>().Remove(entity);
+                    return cancellationToken;
                 })
-                .Then("Save to database", async () =>
+                .Then("Save to database", async props =>
                 {
-                    await db.SaveChangesAsync();
+                    var cancellationToken = props;
+                    await db.SaveChangesAsync(cancellationToken);
                 })
                 .Build();
 

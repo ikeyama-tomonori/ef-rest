@@ -64,54 +64,72 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Normal_id()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var id = Books.Single(b => b.Title == "War and Peace").Id;
-            var response = await client.GetFromJsonAsync<Book>($"/Books/{id}");
+            var response = await client.GetFromJsonAsync<Book>($"Books/{id}");
             Assert.AreEqual("War and Peace", response?.Title);
         }
 
         [TestMethod]
         public async Task Invalid_id_format()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
-            var response = await client.GetAsync($"/Books/x");
+            var response = await client.GetAsync($"Books/x");
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Invalid_id_out_of_range()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var maxId = db.Books.Max(b => b.Id);
 
-            var response = await client.GetAsync($"/Books/{maxId + 1}");
+            var response = await client.GetAsync($"Books/{maxId + 1}");
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         }
     }

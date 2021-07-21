@@ -10,11 +10,13 @@ namespace EfRest.Internal
 {
     internal static class TypeExtention
     {
-        public static PropertyInfo? GetPropertyInfo(
+        public static PropertyInfo? GetPropertyInfoByJsonName(
             this Type type,
             string name,
-            JsonSerializerOptions jsonSerializerOptions)
+            JsonSerializerOptions jsonSerializerOptions,
+            params Type[]? ignoreAttributes)
         {
+            var ignores = ignoreAttributes ?? new[] { typeof(JsonIgnoreAttribute), typeof(NotMappedAttribute) };
             var stringComparison = jsonSerializerOptions.PropertyNameCaseInsensitive
                     ? StringComparison.OrdinalIgnoreCase
                     : StringComparison.Ordinal;
@@ -22,8 +24,9 @@ namespace EfRest.Internal
                 .GetProperties()
                 .FirstOrDefault(propertyInfo =>
                 {
-                    if (propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() != null) return false;
-                    if (propertyInfo.GetCustomAttribute<NotMappedAttribute>() != null) return false;
+                    var attributeTypes = propertyInfo.GetCustomAttributes().Select(attr => attr.GetType());
+                    if (attributeTypes.Intersect(ignores).Any()) return false;
+
                     var jsonPropertyNameAttribute = propertyInfo
                         .GetCustomAttribute<JsonPropertyNameAttribute>();
 
@@ -40,7 +43,7 @@ namespace EfRest.Internal
             return properties;
         }
 
-        public static Expression? GetMemberExpression(
+        public static Expression? GetMemberExpressionByJsonName(
             this Type type,
             string name,
             Expression parameter,
@@ -55,7 +58,7 @@ namespace EfRest.Internal
                     {
                         if (accumulator is (Expression param, Type type))
                         {
-                            var propertyInfo = type.GetPropertyInfo(current, jsonSerializerOptions);
+                            var propertyInfo = type.GetPropertyInfoByJsonName(current, jsonSerializerOptions);
                             if (propertyInfo == null) return null;
                             var memberAccess = Expression.MakeMemberAccess(param, propertyInfo);
                             return (memberAccess, propertyInfo.PropertyType);

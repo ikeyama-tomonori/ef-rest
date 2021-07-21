@@ -2,10 +2,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using System.Web;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EfRest.Test
@@ -18,11 +15,17 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Update()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -37,7 +40,7 @@ namespace EfRest.Test
                 Title = "Modified Book"
             };
 
-            var response = await client.PutAsJsonAsync($"/Books/{book.Id}", modifiedBook);
+            var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             var modified = await response.Content.ReadFromJsonAsync<Book>();
             Assert.AreEqual("Modified Book", modified?.Title);
@@ -46,18 +49,17 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Update_with_navigation()
         {
-            var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
             {
-                ReferenceHandler = ReferenceHandler.Preserve
+                CloudCqsOptions = Options.Instance
             };
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db)
-            {
-                JsonSerializerOptions = jsonSerializerOptions
-            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -75,22 +77,28 @@ namespace EfRest.Test
                     Rating = 1.0m
                 }
             };
-            var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "BookDetail" }));
-            var response = await client.PutAsJsonAsync($"/Books/{book.Id}?embed={embed}", modifiedBook);
+
+            var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            var modified = await response.Content.ReadFromJsonAsync<Book>(jsonSerializerOptions);
+            var modified = await response.Content.ReadFromJsonAsync<Book>();
             Assert.AreEqual("Modified Book", modified?.Title);
-            Assert.AreEqual(1.0m, modified?.BookDetail?.Rating);
+            Assert.AreEqual(1.0m, book.BookDetail?.Rating);
         }
 
         [TestMethod]
         public async Task Invalid_id_format()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -105,18 +113,24 @@ namespace EfRest.Test
                 Title = "Modified Book"
             };
 
-            var response = await client.PutAsJsonAsync($"/Books/xxx", modifiedBook);
+            var response = await client.PutAsJsonAsync($"Books/xxx", modifiedBook);
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Invalid_id_number()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var modifiedBook = new Book
@@ -124,18 +138,24 @@ namespace EfRest.Test
                 Title = "Modified Book"
             };
 
-            var response = await client.PutAsJsonAsync($"/Books/1", modifiedBook);
+            var response = await client.PutAsJsonAsync($"Books/1", modifiedBook);
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Invalid_body_format()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -145,18 +165,24 @@ namespace EfRest.Test
             await db.Books.AddAsync(book);
             await db.SaveChangesAsync();
 
-            var response = await client.PutAsJsonAsync($"/Books/{book.Id}", "xxx");
+            var response = await client.PutAsJsonAsync($"Books/{book.Id}", "xxx");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Invalid_body_with_annotation()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -170,7 +196,7 @@ namespace EfRest.Test
             {
                 Title = ""
             };
-            var response = await client.PutAsJsonAsync($"/Books/{book.Id}", modifiedBook);
+            var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }

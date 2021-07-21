@@ -58,21 +58,26 @@ namespace EfRest.Test
                 ReferenceHandler = ReferenceHandler.Preserve
             };
 
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+                JsonSerializerOptions = jsonSerializerOptions,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Genres.AddRangeAsync(Genres);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db)
-            {
-                JsonSerializerOptions = jsonSerializerOptions
-            };
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
 
             var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "ParentGenre" }));
-            var response = await client.GetFromJsonAsync<Genre[]>($"/Genres?embed={embed}", jsonSerializerOptions);
+            var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
             var level3 = response?.Single(g => g.Name == "Level3");
             Assert.IsNotNull(level3?.ParentGenre);
         }
@@ -85,21 +90,25 @@ namespace EfRest.Test
                 ReferenceHandler = ReferenceHandler.Preserve
             };
 
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+                JsonSerializerOptions = jsonSerializerOptions,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Genres.AddRangeAsync(Genres);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db)
-            {
-                JsonSerializerOptions = jsonSerializerOptions
-            };
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "child_genres" }));
-            var response = await client.GetFromJsonAsync<Genre[]>($"/Genres?embed={embed}", jsonSerializerOptions);
+            var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
             var level3 = response?.Single(g => g.Name == "Level3");
             Assert.IsNotNull(level3?.ChildGenres);
         }
@@ -112,21 +121,25 @@ namespace EfRest.Test
                 ReferenceHandler = ReferenceHandler.Preserve
             };
 
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+                JsonSerializerOptions = jsonSerializerOptions,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Genres.AddRangeAsync(Genres);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db)
-            {
-                JsonSerializerOptions = jsonSerializerOptions
-            };
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "child_genres.child_genres" }));
-            var response = await client.GetFromJsonAsync<Genre[]>($"/Genres?embed={embed}", jsonSerializerOptions);
+            var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
             var level1 = response?.Single(g => g.Name == "Level1");
             Assert.IsNotNull(level1?.ChildGenres?.First().ChildGenres);
         }
@@ -139,18 +152,22 @@ namespace EfRest.Test
                 ReferenceHandler = ReferenceHandler.Preserve
             };
 
-            using var db = new BookDbContext();
-            await db.Genres.AddRangeAsync(Genres);
-            await db.SaveChangesAsync();
-
-            using var handler = new EfRestHandler(db)
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
             {
-                JsonSerializerOptions = jsonSerializerOptions
+                CloudCqsOptions = Options.Instance,
+                JsonSerializerOptions = jsonSerializerOptions,
             };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
+
+            await db.Genres.AddRangeAsync(Genres);
+            await db.SaveChangesAsync();
 
             var embed = HttpUtility.UrlEncode(
                 JsonSerializer.Serialize(
@@ -160,7 +177,7 @@ namespace EfRest.Test
                         "child_genres.child_genres",
                         "Books"
                     }));
-            var response = await client.GetFromJsonAsync<Genre[]>($"/Genres?embed={embed}", jsonSerializerOptions);
+            var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
             var level2 = response?.Single(g => g.Name == "Level2");
             Assert.IsNotNull(level2?.ParentGenre);
             Assert.IsNotNull(level2?.ChildGenres?.First().ChildGenres);
@@ -170,15 +187,21 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Json_invalid()
         {
-            using var db = new BookDbContext();
-            await db.Genres.AddRangeAsync(Genres);
-            await db.SaveChangesAsync();
-
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
+
+            await db.Genres.AddRangeAsync(Genres);
+            await db.SaveChangesAsync();
 
             var embed = HttpUtility.UrlEncode("{}");
             var response = await client.GetAsync($"Genres?embed={embed}");
@@ -188,15 +211,21 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Json_array_invalid()
         {
-            using var db = new BookDbContext();
-            await db.Genres.AddRangeAsync(Genres);
-            await db.SaveChangesAsync();
-
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
+
+            await db.Genres.AddRangeAsync(Genres);
+            await db.SaveChangesAsync();
 
             var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 1 }));
             var response = await client.GetAsync($"Genres?embed={embed}");
@@ -206,15 +235,21 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Name_invalid()
         {
-            using var db = new BookDbContext();
-            await db.Genres.AddRangeAsync(Genres);
-            await db.SaveChangesAsync();
-
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
+
+            await db.Genres.AddRangeAsync(Genres);
+            await db.SaveChangesAsync();
 
             var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "xxx" }));
             var response = await client.GetAsync($"Genres?embed={embed}");
