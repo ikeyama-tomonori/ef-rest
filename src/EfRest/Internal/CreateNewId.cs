@@ -1,29 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading;
 using CloudCqs;
 using CloudCqs.NewId;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal.EntityHandler
+namespace EfRest.Internal
 {
-    public class CreateNewId<TEntity> : NewId<HttpContent, string>
+    internal class CreateNewId<TEntity> : NewId<(string item, CancellationToken cancellationToken), string>
         where TEntity : class
     {
         public CreateNewId(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
         {
             var handler = new Handler()
-                .Then("Deserialize json", async props =>
+                .Then("Deserialize json", props =>
                 {
-                    var content = props;
+                    var (content, cancellationToken) = props;
                     try
                     {
-                        var entity = await content.ReadFromJsonAsync<TEntity>(jsonSerializerOptions);
+                        var entity = JsonSerializer.Deserialize<TEntity>(
+                            content,
+                            jsonSerializerOptions);
                         if (entity == null) throw new NullGuardException(nameof(entity));
-                        return entity;
+                        return (cancellationToken, entity);
                     }
                     catch (JsonException exception)
                     {
@@ -35,13 +36,13 @@ namespace EfRest.Internal.EntityHandler
                 })
                 .Then("Validate by annotations", props =>
                 {
-                    var entity = props;
+                    var (cancellationToken, entity) = props;
                     entity.Validate();
-                    return entity;
+                    return (cancellationToken, entity);
                 })
                 .Then("Get key's PropertyInfo", props =>
                 {
-                    var entity = props;
+                    var (cancellationToken, entity) = props;
                     var dbSet = db.Set<TEntity>();
                     var propertyInfo = dbSet
                         .EntityType
@@ -49,28 +50,29 @@ namespace EfRest.Internal.EntityHandler
                         .Properties
                         .Single()
                         .PropertyInfo;
-                    return (entity, propertyInfo);
+                    return (cancellationToken, entity, propertyInfo);
                 })
                 .Then("Reset key as defualt", props =>
                 {
-                    var (entity, propertyInfo) = props;
+                    var (cancellationToken, entity, propertyInfo) = props;
                     var value =
                         propertyInfo.PropertyType.IsValueType
                         ? Activator.CreateInstance(propertyInfo.PropertyType)
                         : null;
                     propertyInfo.SetValue(entity, value);
-                    return (entity, propertyInfo);
+                    return (cancellationToken, entity, propertyInfo);
                 })
                 .Then("Add to DbSet", async props =>
                 {
-                    var (entity, propertyInfo) = props;
-                    await db.Set<TEntity>().AddAsync(entity);
-                    return (entity, propertyInfo);
+                    var (cancellationToken, entity, propertyInfo) = props;
+                    await db.Set<TEntity>().AddAsync(entity, cancellationToken);
+                    return (cancellationToken, entity, propertyInfo);
                 })
                 .Then("Save to database", async props =>
                 {
-                    await db.SaveChangesAsync();
-                    return props;
+                    var (cancellationToken, entity, propertyInfo) = props;
+                    await db.SaveChangesAsync(cancellationToken);
+                    return (entity, propertyInfo);
                 })
                 .Then("Serialize id value", props =>
                 {

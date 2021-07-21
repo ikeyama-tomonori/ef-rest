@@ -3,11 +3,11 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>0.0.0</Version>
+    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CloudCqs" Version="0.3.0" />
+    <PackageReference Include="CloudCqs" Version="0.3.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="5.0.8" />
   </ItemGroup>
 </Project>

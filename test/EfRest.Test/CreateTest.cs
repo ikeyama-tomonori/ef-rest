@@ -17,68 +17,92 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Create()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var newBook = new Book
             {
                 Title = "New Book"
             };
-            var response = await client.PostAsJsonAsync("/Books", newBook);
+            var response = await client.PostAsJsonAsync("Books", newBook);
             var content = await response.Content.ReadFromJsonAsync<Book>();
 
             Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
             Assert.AreEqual("New Book", content?.Title);
 
             var createdBook = await db.Books.SingleAsync(b => b.Title == "New Book");
-            Assert.AreEqual($"/Books/{createdBook.Id}", response.Headers.GetValues("Location").First());
+            Assert.AreEqual($"{baseAddress}Books/{createdBook.Id}", response.Headers.GetValues("Location").First());
             Assert.AreEqual("New Book", createdBook.Title);
         }
 
         [TestMethod]
         public async Task Invalid_json()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
-            var response = await client.PostAsJsonAsync("/Books", "xxx");
+            var response = await client.PostAsJsonAsync("Books", "xxx");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Invalid_data()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var newBook = new
             {
                 xxx = "New Book"
             };
-            var response = await client.PostAsJsonAsync("/Books", newBook);
+            var response = await client.PostAsJsonAsync("Books", newBook);
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Ignore_id_field()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var newBook = new Book
@@ -89,7 +113,7 @@ namespace EfRest.Test
             await db.SaveChangesAsync();
             db.ChangeTracker.Clear();
 
-            var response = await client.PostAsJsonAsync("/Books", newBook);
+            var response = await client.PostAsJsonAsync("Books", newBook);
             Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         }
     }

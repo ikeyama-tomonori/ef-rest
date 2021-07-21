@@ -43,18 +43,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Get_several_records()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 1, 3 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             var data = await response.Content.ReadFromJsonAsync<Book[]>();
             Assert.AreEqual(3, data?.Length);
             var contentRange = response.Content.Headers.GetValues("Content-Range").First();
@@ -64,18 +70,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Get_first_record()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 0, 0 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             var data = await response.Content.ReadFromJsonAsync<Book[]>();
             Assert.AreEqual(1, data?.Length);
             var contentRange = response.Content.Headers.GetValues("Content-Range").First();
@@ -85,18 +97,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Get_last_record()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 3, 3 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             var data = await response.Content.ReadFromJsonAsync<Book[]>();
             Assert.AreEqual(1, data?.Length);
             var contentRange = response.Content.Headers.GetValues("Content-Range").First();
@@ -106,18 +124,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Over_range()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 0, 4 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             var data = await response.Content.ReadFromJsonAsync<Book[]>();
             Assert.AreEqual(4, data?.Length);
             var contentRange = response.Content.Headers.GetValues("Content-Range").First();
@@ -127,18 +151,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Out_of_range()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 4, 4 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             var data = await response.Content.ReadFromJsonAsync<Book[]>();
             Assert.AreEqual(0, data?.Length);
             var contentRange = response.Content.Headers.GetValues("Content-Range").First();
@@ -148,36 +178,48 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Json_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode("{}");
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Array_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 4 }));
-            var response = await client.GetAsync($"/Books?range={range}");
+            var response = await client.GetAsync($"Books?range={range}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }

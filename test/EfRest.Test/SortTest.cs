@@ -66,18 +66,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Order_Desc()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "Rating", "desc" }));
-            var response = await client.GetFromJsonAsync<BookDetail[]>($"/books/details?sort={sort}");
+            var response = await client.GetFromJsonAsync<BookDetail[]>($"books/details?sort={sort}");
             response?.Aggregate((previous, current) =>
             {
                 Assert.IsTrue(previous.Rating >= current.Rating);
@@ -88,18 +94,24 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Order_Asc()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages", "asc" }));
-            var response = await client.GetFromJsonAsync<BookDetail[]>($"/books/details?sort={sort}");
+            var response = await client.GetFromJsonAsync<BookDetail[]>($"books/details?sort={sort}");
             response?.Aggregate((previous, current) =>
             {
                 if (previous.TotalPages == null || current.TotalPages == null)
@@ -114,72 +126,96 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Json_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode("{");
-            var response = await client.GetAsync($"/books/details/?sort={sort}");
+            var response = await client.GetAsync($"books/details/?sort={sort}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Field_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "xxx", "asc" }));
-            var response = await client.GetAsync($"/books/details/?sort={sort}");
+            var response = await client.GetAsync($"books/details/?sort={sort}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Order_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages", "xxx" }));
-            var response = await client.GetAsync($"/books/details/?sort={sort}");
+            var response = await client.GetAsync($"books/details/?sort={sort}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
         public async Task Array_invalid()
         {
-            using var db = new BookDbContext();
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
+            using var client = new HttpClient(handler)
+            {
+                BaseAddress = baseAddress
+            };
+
             await db.Books.AddRangeAsync(Books);
             await db.SaveChangesAsync();
 
-            using var handler = new EfRestHandler(db);
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = new Uri("http://localhost")
-            };
-
             var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages" }));
-            var response = await client.GetAsync($"/books/details/?sort={sort}");
+            var response = await client.GetAsync($"books/details/?sort={sort}");
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }

@@ -16,11 +16,17 @@ namespace EfRest.Test
         [TestMethod]
         public async Task Delete()
         {
-            using var db = new BookDbContext();
-            using var handler = new EfRestHandler(db);
+            var db = new BookDbContext();
+            var baseAddress = new Uri("http://localhost/api/");
+            var server = new EfRestServer(baseAddress)
+            {
+                CloudCqsOptions = Options.Instance,
+            };
+            server.Init(db);
+            var handler = server.GetHandler();
             using var client = new HttpClient(handler)
             {
-                BaseAddress = new Uri("http://localhost")
+                BaseAddress = baseAddress
             };
 
             var book = new Book
@@ -30,7 +36,7 @@ namespace EfRest.Test
             await db.Books.AddAsync(book);
             await db.SaveChangesAsync();
 
-            var response = await client.DeleteAsync($"/Books/{book.Id}");
+            var response = await client.DeleteAsync($"Books/{book.Id}");
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             var deleted = await response.Content.ReadFromJsonAsync<Book>();
             Assert.AreEqual("New Book", deleted?.Title);
