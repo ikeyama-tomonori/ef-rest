@@ -54,14 +54,14 @@ namespace EfRest
             var id = await repository.CreateNewId.Invoke((item, cancellationToken));
             var response = await repository.GetOneQuery.Invoke((id, new(), cancellationToken));
             response.StatusCode = HttpStatusCode.Created;
-            response.Headers.Location = new Uri(BaseAddress, $"{name}/{id}");
+            response.Headers.Location = new Uri($"{BaseAddress.AbsolutePath}{name}/{id}", UriKind.Relative);
             return response;
         }
 
         public async Task<HttpResponseMessage> UpdateOne(string name, string id, string item, CancellationToken cancellationToken = default)
         {
             var repository = GetRepository(name);
-            await repository.PatchCommand.Invoke((id, item, cancellationToken));
+            await repository.UpdateCommand.Invoke((id, item, cancellationToken));
             var response = await repository.GetOneQuery.Invoke((id, new(), cancellationToken));
             return response;
         }
@@ -77,7 +77,6 @@ namespace EfRest
         public class Handler : DelegatingHandler
         {
             private readonly EfRestServer _server;
-            private bool _disposed = false;
 
             internal Handler(EfRestServer server) : base(new HttpClientHandler())
             {
@@ -147,21 +146,6 @@ namespace EfRest
                 }
 
             }
-
-            protected override void Dispose(bool disposing)
-            {
-                if (!_disposed)
-                {
-                    if (disposing)
-                    {
-                        _server.DbContext?.Dispose();
-                    }
-
-                    _disposed = true;
-
-                    base.Dispose(disposing);
-                }
-            }
         }
 
         public Handler GetHandler()
@@ -211,7 +195,7 @@ namespace EfRest
             if (DbContext == null) throw new NullGuardException(nameof(DbContext));
             return new(
                 new CreateNewId<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
-                new PatchCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
+                new UpdateCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                 new GetOneQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                 new DeleteCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                 new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions));

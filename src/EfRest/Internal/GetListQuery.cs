@@ -42,21 +42,19 @@ namespace EfRest.Internal
                     try
                     {
                         var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
-                        if (embed == null) throw new BadRequestException(
-                            new()
-                            {
-                                { "embed", new[] { $"Invalid json array: {json}" } }
-                            });
+                        if (embed == null) throw new BadRequestException(new()
+                        {
+                            ["embed"] = new[] { $"Invalid json array: {json}" }
+                        });
 
                         return (cancellationToken, query, param, embed);
                     }
                     catch (JsonException e)
                     {
-                        throw new BadRequestException(
-                           new()
-                           {
-                               { "embed", new[] { e.Message } }
-                           });
+                        throw new BadRequestException(new()
+                        {
+                            ["embed"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("(embed) Convert json property names to EF's", props =>
@@ -78,11 +76,10 @@ namespace EfRest.Internal
                                             jsonSerializerOptions);
                                     if (propertyInfo == null)
                                     {
-                                        throw new BadRequestException(
-                                            new()
-                                            {
-                                                { "embed", new[] { $"Invalid field name: {embedItem}" } }
-                                            });
+                                        throw new BadRequestException(new()
+                                        {
+                                            ["embed"] = new[] { $"Invalid field name: {embedItem}" }
+                                        });
                                     }
                                     var newNameList = nameList.Append(propertyInfo.Name).ToArray();
                                     var propType = propertyInfo.PropertyType;
@@ -128,11 +125,10 @@ namespace EfRest.Internal
                         using var jsonDocument = JsonDocument.Parse(json);
                         if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                         {
-                            throw new BadRequestException(
-                                new()
-                                {
-                                    { "filter", new[] { $"Not object: {json}" } }
-                                });
+                            throw new BadRequestException(new()
+                            {
+                                ["filter"] = new[] { $"Not object: {json}" }
+                            });
                         }
                         var filters = jsonDocument
                             .RootElement
@@ -147,11 +143,10 @@ namespace EfRest.Internal
                     }
                     catch (JsonException e)
                     {
-                        throw new BadRequestException(
-                            new()
-                            {
-                                { "filter", new[] { e.Message } }
-                            });
+                        throw new BadRequestException(new()
+                        {
+                            ["filter"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("(filter) Divide by search or not", props =>
@@ -254,11 +249,10 @@ namespace EfRest.Internal
                                     jsonSerializerOptions);
                             if (member == null)
                             {
-                                throw new BadRequestException(
-                                    new()
-                                    {
-                                        { "filter", new[] { $"Property not found: {name}" } }
-                                    });
+                                throw new BadRequestException(new()
+                                {
+                                    ["filter"] = new[] { $"Property not found: {name}" }
+                                });
                             }
 
                             return (getExpression, member, json, typeConverter);
@@ -282,11 +276,10 @@ namespace EfRest.Internal
                             }
                             catch (JsonException e)
                             {
-                                throw new BadRequestException(
-                                    new()
-                                    {
-                                        { "filter", new[] { e.Message } }
-                                    });
+                                throw new BadRequestException(new()
+                                {
+                                    ["filter"] = new[] { e.Message }
+                                });
                             }
                         })
                         .ToArray();
@@ -331,21 +324,19 @@ namespace EfRest.Internal
                         var sort = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
                         if (sort == null || sort.Length != 2)
                         {
-                            throw new BadRequestException(
-                                new()
-                                {
-                                    { "sort", new[] { $"Invalid json array: {json}" } }
-                                });
+                            throw new BadRequestException(new()
+                            {
+                                ["sort"] = new[] { $"Invalid json array: {json}" }
+                            });
                         }
                         return (cancellationToken, query, param, total, sort: (field: sort[0], order: sort[1]));
                     }
                     catch (JsonException e)
                     {
-                        throw new BadRequestException(
-                            new()
-                            {
-                                { "sort", new[] { e.Message } }
-                            });
+                        throw new BadRequestException(new()
+                        {
+                            ["sort"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("(sort) Get member access", props =>
@@ -357,11 +348,10 @@ namespace EfRest.Internal
                         var member = typeof(TEntity).GetMemberExpressionByJsonName(field, entityParameter, jsonSerializerOptions);
                         if (member == null)
                         {
-                            throw new BadRequestException(
-                                new()
-                                {
-                                    { "sort", new[] { $"Invalid sort field: ${field}" } }
-                                });
+                            throw new BadRequestException(new()
+                            {
+                                ["sort"] = new[] { $"Invalid sort field: ${field}" }
+                            });
                         }
                         return (cancellationToken, query, param, total, sort: (member, order, entityParameter));
                     }
@@ -385,11 +375,10 @@ namespace EfRest.Internal
                                 => query.OrderBy(expression),
                             var o when o.Equals("desc", StringComparison.OrdinalIgnoreCase)
                                 => query.OrderByDescending(expression),
-                            _ => throw new BadRequestException(
-                                    new()
-                                    {
-                                        { "sort", new[] { $"Invalid sort order: ${order}" } }
-                                    })
+                            _ => throw new BadRequestException(new()
+                            {
+                                ["sort"] = new[] { $"Invalid sort order: ${order}" }
+                            })
                         };
                         return (cancellationToken, query: sortedQuery, param, total);
                     }
@@ -405,11 +394,10 @@ namespace EfRest.Internal
                         var parsedRange = JsonSerializer.Deserialize<int[]>(json, jsonSerializerOptions);
                         if (parsedRange == null || parsedRange.Length != 2)
                         {
-                            throw new BadRequestException(
-                                new()
-                                {
-                                    { "range", new[] { $"Invalid json array: {json}" } }
-                                });
+                            throw new BadRequestException(new()
+                            {
+                                ["range"] = new[] { $"Invalid json array: {json}" }
+                            });
                         }
                         var range = (start: parsedRange[0], end: parsedRange[1]);
                         var rangedQuery = query.Skip(range.start).Take(range.end - range.start + 1);
@@ -417,11 +405,10 @@ namespace EfRest.Internal
                     }
                     catch (JsonException e)
                     {
-                        throw new BadRequestException(
-                            new()
-                            {
-                                { "range", new[] { e.Message } }
-                            });
+                        throw new BadRequestException(new()
+                        {
+                            ["range"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("Run query", async props =>
@@ -452,8 +439,7 @@ namespace EfRest.Internal
                 .Then("Determine the status", props =>
                 {
                     var (data, contentRange) = props;
-                    if (contentRange != null
-                        && data.Length < contentRange.Length)
+                    if (data.Length < contentRange.Length)
                     {
                         return (data, contentRange, status: HttpStatusCode.PartialContent);
                     }

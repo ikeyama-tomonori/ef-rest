@@ -34,21 +34,19 @@ namespace EfRest.Internal
                         var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
                         if (idValue == null)
                         {
-                            throw new NotFoundException(
-                                new()
-                                {
-                                    { "id", new[] { $"Id can not be null: {id}" } }
-                                });
+                            throw new NotFoundException(new()
+                            {
+                                ["id"] = new[] { $"Id can not be null: {id}" }
+                            });
                         }
                         return (cancellationToken, idValue);
                     }
                     catch (JsonException e)
                     {
-                        throw new NotFoundException(
-                            new()
-                            {
-                                { "id", new[] { e.Message } }
-                            });
+                        throw new NotFoundException(new()
+                        {
+                            ["id"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("Get current entity", async props =>
@@ -59,11 +57,10 @@ namespace EfRest.Internal
                         .FindAsync(new[] { idValue }, cancellationToken);
                     if (entity == null)
                     {
-                        throw new NotFoundException(
-                            new()
-                            {
-                                { "id", new[] { $"Not found: {idValue}" } }
-                            });
+                        throw new NotFoundException(new()
+                        {
+                            ["id"] = new[] { $"Not found: {idValue}" }
+                        });
                     }
                     return (cancellationToken, entity);
                 })

@@ -88,7 +88,7 @@ namespace EfRest.Internal
                     {
                         throw new NotFoundException(new()
                         {
-                            { "path", new[] { $"Resource name not found: {nominee.resource}" } }
+                            ["path"] = new[] { $"Resource name not found: {nominee.resource}" }
                         });
                     }
 

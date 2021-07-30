@@ -28,9 +28,9 @@ namespace EfRest.Internal
                     }
                     catch (JsonException exception)
                     {
-                        throw new BadRequestException(new Dictionary<string, string[]>()
+                        throw new BadRequestException(new()
                         {
-                            { "body", new[]{exception.Message } }
+                            ["body"] = new[] { exception.Message }
                         });
                     }
                 })
