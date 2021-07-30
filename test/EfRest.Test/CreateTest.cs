@@ -41,7 +41,7 @@ namespace EfRest.Test
             Assert.AreEqual("New Book", content?.Title);
 
             var createdBook = await db.Books.SingleAsync(b => b.Title == "New Book");
-            Assert.AreEqual($"{baseAddress}Books/{createdBook.Id}", response.Headers.GetValues("Location").First());
+            Assert.AreEqual($"/api/Books/{createdBook.Id}", response.Headers.GetValues("Location").First());
             Assert.AreEqual("New Book", createdBook.Title);
         }
 

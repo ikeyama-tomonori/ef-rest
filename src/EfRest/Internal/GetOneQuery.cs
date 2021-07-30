@@ -36,21 +36,19 @@ namespace EfRest.Internal
                     try
                     {
                         var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
-                        if (embed == null) throw new BadRequestException(
-                            new()
-                            {
-                                { "embed", new[] { $"Invalid json array: {json}" } }
-                            });
+                        if (embed == null) throw new BadRequestException(new()
+                        {
+                            ["embed"] = new[] { $"Invalid json array: {json}" }
+                        });
 
                         return (cancellationToken, query, id, embed);
                     }
                     catch (JsonException e)
                     {
-                        throw new BadRequestException(
-                           new()
-                           {
-                               { "embed", new[] { e.Message } }
-                           });
+                        throw new BadRequestException(new()
+                        {
+                            ["embed"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("(embed) Convert json property names to EF's", props =>
@@ -72,11 +70,10 @@ namespace EfRest.Internal
                                             jsonSerializerOptions);
                                     if (propertyInfo == null)
                                     {
-                                        throw new BadRequestException(
-                                            new()
-                                            {
-                                                { "embed", new[] { $"Invalid field name: {embedItem}" } }
-                                            });
+                                        throw new BadRequestException(new()
+                                        {
+                                            ["embed"] = new[] { $"Invalid field name: {embedItem}" }
+                                        });
                                     }
                                     var newNameList = nameList.Append(propertyInfo.Name).ToArray();
                                     var propType = propertyInfo.PropertyType;
@@ -127,11 +124,10 @@ namespace EfRest.Internal
                     }
                     catch (JsonException e)
                     {
-                        throw new NotFoundException(
-                            new()
-                            {
-                                { "id", new[] { e.Message } }
-                            });
+                        throw new NotFoundException(new()
+                        {
+                            ["id"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("Create where expression", props =>
@@ -153,7 +149,7 @@ namespace EfRest.Internal
                     {
                         throw new NotFoundException(new()
                         {
-                            { "id", new[] { $"Id not found: {value}" } }
+                            ["id"] = new[] { $"Id not found: {value}" }
                         });
                     }
                     return data;

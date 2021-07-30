@@ -9,10 +9,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal
 {
-    internal class PatchCommand<TEntity> : Command<(string id, string content, CancellationToken cancellationToken)>
+    internal class UpdateCommand<TEntity> : Command<(string id, string content, CancellationToken cancellationToken)>
         where TEntity : class
     {
-        public PatchCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+        public UpdateCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
             : base(option)
         {
             var handler = new Handler()
@@ -38,11 +38,10 @@ namespace EfRest.Internal
                     }
                     catch (JsonException e)
                     {
-                        throw new NotFoundException(
-                            new()
-                            {
-                                { "id", new[] { e.Message } }
-                            });
+                        throw new NotFoundException(new()
+                        {
+                            ["id"] = new[] { e.Message }
+                        });
                     }
                 })
                 .Then("Get current entity", async props =>
@@ -53,11 +52,10 @@ namespace EfRest.Internal
                         .FindAsync(new[] { idValue }, cancellationToken);
                     if (entity == null)
                     {
-                        throw new NotFoundException(
-                            new()
-                            {
-                                { "id", new[] { $"Not found: {idValue}" } }
-                            });
+                        throw new NotFoundException(new()
+                        {
+                            ["id"] = new[] { $"Not found: {idValue}" }
+                        });
                     }
                     return (cancellationToken, content, entity, keyName: propertyInfo.Name);
                 })
@@ -70,11 +68,10 @@ namespace EfRest.Internal
                        using var jsonDocument = JsonDocument.Parse(json);
                        if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                        {
-                           throw new BadRequestException(
-                               new()
-                               {
-                                   { "body", new[] { $"Not object: {json}" } }
-                               });
+                           throw new BadRequestException(new()
+                           {
+                               ["body"] = new[] { $"Not json object: {json}" }
+                           });
                        }
                        var properties = jsonDocument
                            .RootElement
@@ -89,9 +86,9 @@ namespace EfRest.Internal
                    }
                    catch (JsonException exception)
                    {
-                       throw new BadRequestException(new Dictionary<string, string[]>()
+                       throw new BadRequestException(new()
                        {
-                            { "body", new[]{exception.Message } }
+                           ["body"] = new[] { exception.Message }
                        });
                    }
                })
@@ -108,7 +105,7 @@ namespace EfRest.Internal
                             {
                                 throw new BadRequestException(new()
                                 {
-                                    { propertyName, new[] { "Invalid field name" } }
+                                    [propertyName] = new[] { "Invalid field name" }
                                 });
                             }
                             try
@@ -123,7 +120,7 @@ namespace EfRest.Internal
                             {
                                 throw new BadRequestException(new()
                                 {
-                                    { propertyInfo.Name, new[] { exception.Message } }
+                                    [propertyInfo.Name] = new[] { exception.Message }
                                 });
                             }
                         })
