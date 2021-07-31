@@ -16,7 +16,11 @@ namespace EfRest.Swagger.Test
             using var db = new BookDbContext();
             var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
             var swaggerGen = new EfRestSwagger(db, jsonSerializerOptions);
-            var swagger = swaggerGen.GetSwagger();
+            var swagger = swaggerGen.GetSwagger(
+                documentName: "test",
+                documentVersion: "v1",
+                host: "http://localhost:4000",
+                basePath: "/api");
 
             Assert.IsNotNull(swagger.Paths.FirstOrDefault(p => p.Key == "/publishers"));
         }
