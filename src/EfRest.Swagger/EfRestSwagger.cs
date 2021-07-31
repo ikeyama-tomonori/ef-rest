@@ -14,15 +14,11 @@ namespace EfRest.Swagger
 {
     public class EfRestSwagger
     {
-        private readonly string _documentName;
-        private readonly string _documentVersion;
         private readonly JsonSerializerOptions _jsonSerializerOptions;
         private readonly Dictionary<string, Type> _resourceTypes;
 
         public EfRestSwagger(DbContext db, JsonSerializerOptions jsonSerializerOptions)
         {
-            _documentName = db.GetType().Name;
-            _documentVersion = "1.0.0";
             _jsonSerializerOptions = jsonSerializerOptions;
             _resourceTypes = db
                 .GetType()
@@ -44,7 +40,7 @@ namespace EfRest.Swagger
                 .ToDictionary(t => t.name, t => t.type);
         }
 
-        public OpenApiDocument GetSwagger()
+        public OpenApiDocument GetSwagger(string documentName, string documentVersion, string? host = null, string? basePath = null)
         {
             var entities = _resourceTypes;
             var generatorOptions = new SchemaGeneratorOptions();
@@ -397,9 +393,13 @@ namespace EfRest.Swagger
             {
                 Info = new()
                 {
-                    Title = _documentName,
-                    Version = _documentVersion
+                    Title = documentName,
+                    Version = documentVersion
                 },
+                Servers =
+                    host == null && basePath == null
+                    ? Array.Empty<OpenApiServer>()
+                    : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
                 Paths = paths,
                 Components = new OpenApiComponents
                 {
