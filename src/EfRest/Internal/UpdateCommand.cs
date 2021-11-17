@@ -16,21 +16,28 @@ namespace EfRest.Internal
             : base(option)
         {
             var handler = new Handler()
-                .Then("Get key's PropertyInfo", props =>
+                .Then("Get key's PropertyInfo", p =>
                 {
-                    var (id, content, cancellationToken) = props;
+                    var (id, content, cancellationToken) = p;
                     var propertyInfo = db
                         .Set<TEntity>()
                         .EntityType
-                        .FindPrimaryKey()
+                        .FindPrimaryKey()?
                         .Properties
-                        .Single()
+                        .SingleOrDefault()?
                         .PropertyInfo;
+                    if (propertyInfo == null)
+                    {
+                        throw new BadRequestException(new()
+                        {
+                            ["resource"] = new[] { $"Entity must have single primary key." }
+                        });
+                    }
                     return (cancellationToken, id, content, propertyInfo);
                 })
-                .Then("Get key's value", props =>
+                .Then("Get key's value", p =>
                 {
-                    var (cancellationToken, id, content, propertyInfo) = props;
+                    var (cancellationToken, id, content, propertyInfo) = p;
                     try
                     {
                         var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
@@ -44,9 +51,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("Get current entity", async props =>
+                .Then("Get current entity", async p =>
                 {
-                    var (cancellationToken, idValue, content, propertyInfo) = props;
+                    var (cancellationToken, idValue, content, propertyInfo) = p;
                     var entity = await db
                         .Set<TEntity>()
                         .FindAsync(new[] { idValue }, cancellationToken);
@@ -59,9 +66,9 @@ namespace EfRest.Internal
                     }
                     return (cancellationToken, content, entity, keyName: propertyInfo.Name);
                 })
-                .Then("Parse json", props =>
+                .Then("Parse json", p =>
                {
-                   var (cancellationToken, content, entity, keyName) = props;
+                   var (cancellationToken, content, entity, keyName) = p;
                    try
                    {
                        var json = content;
@@ -92,9 +99,9 @@ namespace EfRest.Internal
                        });
                    }
                })
-                .Then("Convert json properties", props =>
+                .Then("Convert json properties", p =>
                 {
-                    var (cancellationToken, entity, properties, keyName) = props;
+                    var (cancellationToken, entity, properties, keyName) = p;
                     var propertyValues = properties
                         .Select(jsonProperty =>
                         {
@@ -128,24 +135,24 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, entity, propertyValues);
                 })
-                .Then("Update current values", props =>
+                .Then("Update current values", p =>
                 {
-                    var (cancellationToken, entity, propertyValues) = props;
+                    var (cancellationToken, entity, propertyValues) = p;
                     foreach (var (propertyInfo, value) in propertyValues)
                     {
                         propertyInfo.SetValue(entity, value);
                     }
                     return (cancellationToken, entity);
                 })
-                .Then("Validate by annotations", props =>
+                .Then("Validate by annotations", p =>
                 {
-                    var (cancellationToken, entity) = props;
+                    var (cancellationToken, entity) = p;
                     entity.Validate();
                     return (cancellationToken, entity);
                 })
-                .Then("Save to database", async props =>
+                .Then("Save to database", async p =>
                 {
-                    var (cancellationToken, entity) = props;
+                    var (cancellationToken, entity) = p;
                     await db.SaveChangesAsync(cancellationToken);
                 })
                 .Build();

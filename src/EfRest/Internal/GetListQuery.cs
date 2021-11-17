@@ -26,17 +26,17 @@ namespace EfRest.Internal
             : base(option)
         {
             var handler = new Handler()
-                .Then("Create base query", props =>
+                .Then("Create base query", p =>
                 {
-                    var (param, cancellationToken) = props;
+                    var (param, cancellationToken) = p;
                     var query = db
                         .Set<TEntity>()
                         .AsNoTracking();
                     return (cancellationToken, query, param);
                 })
-                .Then("(embed) Parse json object", props =>
+                .Then("(embed) Parse json object", p =>
                 {
-                    var (cancellationToken, query, param) = props;
+                    var (cancellationToken, query, param) = p;
                     var json = param["embed"];
                     if (json == null) return (cancellationToken, query, param, embed: Array.Empty<string>());
                     try
@@ -57,9 +57,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("(embed) Convert json property names to EF's", props =>
+                .Then("(embed) Convert json property names to EF's", p =>
                 {
-                    var (cancellationToken, query, param, embed) = props;
+                    var (cancellationToken, query, param, embed) = p;
                     var convertedNames = embed
                         .Select(embedItem =>
                         {
@@ -101,16 +101,16 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, query, param, embed: convertedNames);
                 })
-                .Then("(embed) Apply embed", props =>
+                .Then("(embed) Apply embed", p =>
                 {
-                    var (cancellationToken, query, param, embed) = props;
+                    var (cancellationToken, query, param, embed) = p;
                     var embedQuery = embed
                         .Aggregate(query, (acc, cur) => acc.Include(cur));
                     return (cancellationToken, query: embedQuery, param);
                 })
-                .Then("(filter) Parse  json", props =>
+                .Then("(filter) Parse  json", p =>
                 {
-                    var (cancellationToken, query, param) = props;
+                    var (cancellationToken, query, param) = p;
                     var json = param["filter"];
                     if (json == null)
                     {
@@ -149,16 +149,16 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("(filter) Divide by search or not", props =>
+                .Then("(filter) Divide by search or not", p =>
                 {
-                    var (cancellationToken, query, param, filters) = props;
+                    var (cancellationToken, query, param, filters) = p;
                     var search = filters.FirstOrDefault(p => p.name.ToLower() == "q");
                     var rest = filters.Where(p => p.name.ToLower() != "q").ToArray();
                     return (cancellationToken, query, param, search, rest);
                 })
-                .Then("(filter) Make full text search expression", props =>
+                .Then("(filter) Make full text search expression", p =>
                 {
-                    var (cancellationToken, query, param, (name, json, _), rest) = props;
+                    var (cancellationToken, query, param, (name, json, _), rest) = p;
                     var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                     if (name != null && json != null)
                     {
@@ -188,9 +188,9 @@ namespace EfRest.Internal
                     }
                     return (cancellationToken, query, param, entityParameter, default(Expression), rest);
                 })
-                .Then("(filter) Categorize properties", props =>
+                .Then("(filter) Categorize properties", p =>
                 {
-                    var (cancellationToken, query, param, entityParameter, searchExpression, rest) = props;
+                    var (cancellationToken, query, param, entityParameter, searchExpression, rest) = p;
                     var filters = rest
                         .Select(jsonProperty =>
                         {
@@ -235,9 +235,9 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, query, param, entityParameter, searchExpression, filters);
                 })
-                .Then("(filter) Convert property name to member access", props =>
+                .Then("(filter) Convert property name to member access", p =>
                 {
-                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = props;
+                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
                     var convertedFilters = filters
                         .Select(filter =>
                         {
@@ -260,9 +260,9 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, query, param, entityParameter, searchExpression, convertedFilters);
                 })
-                .Then("(filter) Convert json string to expression", props =>
+                .Then("(filter) Convert json string to expression", p =>
                 {
-                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = props;
+                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
                     var convertedFilters = filters
                         .Select(filter =>
                         {
@@ -285,9 +285,9 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, query, param, entityParameter, searchExpression, convertedFilters);
                 })
-                .Then("(filter) Apply", props =>
+                .Then("(filter) Apply", p =>
                 {
-                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = props;
+                    var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
                     var mergedFilters = searchExpression == null
                         ? filters
                         : filters.Append(searchExpression);
@@ -304,15 +304,15 @@ namespace EfRest.Internal
 
                     return (cancellationToken, query.Where(expression), param);
                 })
-                .Then("Count total", async props =>
+                .Then("Count total", async p =>
                 {
-                    var (cancellationToken, query, param) = props;
+                    var (cancellationToken, query, param) = p;
                     var total = await query.LongCountAsync(cancellationToken);
                     return (cancellationToken, query, param, total);
                 })
-                .Then("(sort) Parse json", props =>
+                .Then("(sort) Parse json", p =>
                 {
-                    var (cancellationToken, query, param, total) = props;
+                    var (cancellationToken, query, param, total) = p;
                     var json = param["sort"];
                     if (json == null)
                     {
@@ -339,9 +339,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("(sort) Get member access", props =>
+                .Then("(sort) Get member access", p =>
                 {
-                    var (cancellationToken, query, param, total, sort) = props;
+                    var (cancellationToken, query, param, total, sort) = p;
                     if (sort is (string field, string order))
                     {
                         var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
@@ -361,9 +361,9 @@ namespace EfRest.Internal
                         return (cancellationToken, query, param, total, sort: sortForMenber);
                     }
                 })
-                .Then("(sort) Build sort for query", props =>
+                .Then("(sort) Build sort for query", p =>
                 {
-                    var (cancellationToken, query, param, total, sort) = props;
+                    var (cancellationToken, query, param, total, sort) = p;
                     if (sort is (Expression member, string order, ParameterExpression entityParameter))
                     {
                         var expression = Expression.Lambda<Func<TEntity, object>>(
@@ -384,9 +384,9 @@ namespace EfRest.Internal
                     }
                     return (cancellationToken, query, param, total);
                 })
-                .Then("(range) Apply", props =>
+                .Then("(range) Apply", p =>
                 {
-                    var (cancellationToken, query, param, total) = props;
+                    var (cancellationToken, query, param, total) = p;
                     var json = param["range"];
                     if (json == null) return (cancellationToken, query, total, (start: 0, end: int.MaxValue));
                     try
@@ -411,15 +411,15 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("Run query", async props =>
+                .Then("Run query", async p =>
                 {
-                    var (cancellationToken, query, total, range) = props;
+                    var (cancellationToken, query, total, range) = p;
                     var data = await query.ToArrayAsync(cancellationToken);
                     return (range, total, data);
                 })
-                .Then("Build Content-Range header", props =>
+                .Then("Build Content-Range header", p =>
                 {
-                    var (range, total, data) = props;
+                    var (range, total, data) = p;
                     if (!data.Any())
                     {
                         var totalOnlyContentRange = new ContentRangeHeaderValue(total)
@@ -436,25 +436,25 @@ namespace EfRest.Internal
                     };
                     return (data, contentRange);
                 })
-                .Then("Determine the status", props =>
+                .Then("Determine the status", p =>
                 {
-                    var (data, contentRange) = props;
+                    var (data, contentRange) = p;
                     if (data.Length < contentRange.Length)
                     {
                         return (data, contentRange, status: HttpStatusCode.PartialContent);
                     }
                     return (data, contentRange, status: HttpStatusCode.OK);
                 })
-                .Then("Create response content", props =>
+                .Then("Create response content", p =>
                 {
-                    var (data, contentRange, status) = props;
+                    var (data, contentRange, status) = p;
                     var content = JsonContent.Create(data, null, jsonSerializerOptions);
                     content.Headers.ContentRange = contentRange;
                     return (status, content);
                 })
-                .Then("Create response message", props =>
+                .Then("Create response message", p =>
                 {
-                    var (status, content) = props;
+                    var (status, content) = p;
                     var responseMessage = new HttpResponseMessage(status)
                     {
                         Content = content,

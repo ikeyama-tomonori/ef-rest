@@ -23,6 +23,16 @@ namespace EfRest.Swagger.Test
                 basePath: "/api");
 
             Assert.IsNotNull(swagger.Paths.FirstOrDefault(p => p.Key == "/publishers"));
+
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            var jsonWriter = new OpenApiJsonWriter(writer);
+            swagger.SerializeAsV3(jsonWriter);
+
+            stream.Position = 0;
+            var reader = new StreamReader(stream);
+            var buf = reader.ReadToEnd();
+            Assert.IsTrue(buf.Any());
         }
     }
 }

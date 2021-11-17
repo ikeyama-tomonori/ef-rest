@@ -20,17 +20,17 @@ namespace EfRest.Internal
         public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
         {
             var handler = new Handler()
-                .Then("Create base query", props =>
+                .Then("Create base query", p =>
                 {
-                    var (id, param, cancellationToken) = props;
+                    var (id, param, cancellationToken) = p;
                     var query = db
                         .Set<TEntity>()
                         .AsNoTracking();
                     return (cancellationToken, query, id, param);
                 })
-                .Then("(embed) Parse json object", props =>
+                .Then("(embed) Parse json object", p =>
                 {
-                    var (cancellationToken, query, id, param) = props;
+                    var (cancellationToken, query, id, param) = p;
                     var json = param["embed"];
                     if (json == null) return (cancellationToken, query, id, embed: Array.Empty<string>());
                     try
@@ -51,9 +51,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("(embed) Convert json property names to EF's", props =>
+                .Then("(embed) Convert json property names to EF's", p =>
                 {
-                    var (cancellationToken, query, id, embed) = props;
+                    var (cancellationToken, query, id, embed) = p;
                     var convertedNames = embed
                         .Select(embedItem =>
                         {
@@ -95,28 +95,35 @@ namespace EfRest.Internal
                         .ToArray();
                     return (cancellationToken, query, id, embed: convertedNames);
                 })
-                .Then("(embed) Apply embed", props =>
+                .Then("(embed) Apply embed", p =>
                 {
-                    var (cancellationToken, query, id, embed) = props;
+                    var (cancellationToken, query, id, embed) = p;
                     var embedQuery = embed
                         .Aggregate(query, (acc, cur) => acc.Include(cur));
                     return (cancellationToken, query: embedQuery, id);
                 })
-                .Then("Get key's PropertyInfo", props =>
+                .Then("Get key's PropertyInfo", p =>
                 {
-                    var (cancellationToken, query, id) = props;
+                    var (cancellationToken, query, id) = p;
                     var dbSet = db.Set<TEntity>();
                     var propertyInfo = dbSet
                         .EntityType
-                        .FindPrimaryKey()
+                        .FindPrimaryKey()?
                         .Properties
-                        .Single()
+                        .SingleOrDefault()?
                         .PropertyInfo;
+                    if (propertyInfo == null)
+                    {
+                        throw new BadRequestException(new()
+                        {
+                            ["resource"] = new[] { $"Entity must have single primary key." }
+                        });
+                    }
                     return (cancellationToken, query, id, propertyInfo);
                 })
-                .Then("Convert id to key's value", props =>
+                .Then("Convert id to key's value", p =>
                 {
-                    var (cancellationToken, query, id, propertyInfo) = props;
+                    var (cancellationToken, query, id, propertyInfo) = p;
                     try
                     {
                         var value = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
@@ -130,9 +137,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("Create where expression", props =>
+                .Then("Create where expression", p =>
                 {
-                    var (cancellationToken, query, value, propertyInfo) = props;
+                    var (cancellationToken, query, value, propertyInfo) = p;
                     var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                     var memberAccess = Expression.MakeMemberAccess(entityParameter, propertyInfo);
                     var valueExpression = Expression.Convert(Expression.Constant(value), propertyInfo.PropertyType);
@@ -141,9 +148,9 @@ namespace EfRest.Internal
 
                     return (cancellationToken, value, query: query.Where(predicate));
                 })
-                .Then("Run query", async props =>
+                .Then("Run query", async p =>
                 {
-                    var (cancellationToken, value, query) = props;
+                    var (cancellationToken, value, query) = p;
                     var data = await query.SingleOrDefaultAsync(cancellationToken);
                     if (data == null)
                     {
@@ -154,9 +161,9 @@ namespace EfRest.Internal
                     }
                     return data;
                 })
-                .Then("Create response", props =>
+                .Then("Create response", p =>
                 {
-                    var data = props;
+                    var data = p;
                     var content = JsonContent.Create(data, null, jsonSerializerOptions);
                     var response = new HttpResponseMessage(HttpStatusCode.OK)
                     {

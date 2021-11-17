@@ -14,21 +14,28 @@ namespace EfRest.Internal
             : base(option)
         {
             var handler = new Handler()
-                .Then("Get key's PropertyInfo", props =>
+                .Then("Get key's PropertyInfo", p =>
                 {
-                    var (id, cancellationToken) = props;
-                    var propertyInfo = db
-                        .Set<TEntity>()
+                    var (id, cancellationToken) = p;
+                    var dbSet = db.Set<TEntity>();
+                    var propertyInfo = dbSet
                         .EntityType
-                        .FindPrimaryKey()
+                        .FindPrimaryKey()?
                         .Properties
-                        .Single()
+                        .SingleOrDefault()?
                         .PropertyInfo;
+                    if (propertyInfo == null)
+                    {
+                        throw new BadRequestException(new()
+                        {
+                            ["resource"] = new[] { $"Entity must have single primary key." }
+                        });
+                    }
                     return (cancellationToken, id, propertyInfo);
                 })
-                .Then("Get key's value", props =>
+                .Then("Get key's value", p =>
                 {
-                    var (cancellationToken, id, propertyInfo) = props;
+                    var (cancellationToken, id, propertyInfo) = p;
                     try
                     {
                         var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
@@ -49,9 +56,9 @@ namespace EfRest.Internal
                         });
                     }
                 })
-                .Then("Get current entity", async props =>
+                .Then("Get current entity", async p =>
                 {
-                    var (cancellationToken, idValue) = props;
+                    var (cancellationToken, idValue) = p;
                     var entity = await db
                         .Set<TEntity>()
                         .FindAsync(new[] { idValue }, cancellationToken);
@@ -64,15 +71,15 @@ namespace EfRest.Internal
                     }
                     return (cancellationToken, entity);
                 })
-                .Then("Delete entity", props =>
+                .Then("Delete entity", p =>
                 {
-                    var (cancellationToken, entity) = props;
+                    var (cancellationToken, entity) = p;
                     db.Set<TEntity>().Remove(entity);
                     return cancellationToken;
                 })
-                .Then("Save to database", async props =>
+                .Then("Save to database", async p =>
                 {
-                    var cancellationToken = props;
+                    var cancellationToken = p;
                     await db.SaveChangesAsync(cancellationToken);
                 })
                 .Build();

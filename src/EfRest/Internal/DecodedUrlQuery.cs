@@ -20,9 +20,9 @@ namespace EfRest.Internal
             Uri baseAddress) : base(option)
         {
             var handler = new Handler()
-                .Then("Decode path and query string", props =>
+                .Then("Decode path and query string", p =>
                 {
-                    var uri = props;
+                    var uri = p;
                     var relative = baseAddress.MakeRelativeUri(uri);
                     var pathAndQuery = relative.OriginalString;
                     var pathQueryArray = pathAndQuery.Split('?');
@@ -31,9 +31,9 @@ namespace EfRest.Internal
                     var param = HttpUtility.ParseQueryString(query);
                     return (path, param);
                 })
-                .Then("Split path into resource and id nominee", props =>
+                .Then("Split path into resource and id nominee", p =>
                 {
-                    var (path, param) = props;
+                    var (path, param) = p;
                     var index = path.LastIndexOf("/");
                     var nominee = new
                     {
@@ -45,9 +45,9 @@ namespace EfRest.Internal
                     };
                     return (nominee, param);
                 })
-                .Then("Handle resource name include slash.", props =>
+                .Then("Handle resource name include slash.", p =>
                  {
-                     var (nominee, param) = props;
+                     var (nominee, param) = p;
                      var resourceNameIncludeSlash =
                         nominee.id == null
                         ? null
@@ -71,9 +71,9 @@ namespace EfRest.Internal
 
                      return (includeSlash, nominee, param);
                  })
-                .Then("Handle resouce name without slash.", props =>
+                .Then("Handle resouce name without slash.", p =>
                 {
-                    var (includeSlash, nominee, param) = props;
+                    var (includeSlash, nominee, param) = p;
                     if (includeSlash != null)
                     {
                         return (name: includeSlash, null, param);
