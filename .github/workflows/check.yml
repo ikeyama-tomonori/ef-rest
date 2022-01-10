@@ -27,10 +27,10 @@ jobs:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
       - name: Install SonarCloud scanner
         run: dotnet tool update --global dotnet-sonarscanner
-      - name: Format check
-        run: dotnet format --verify-no-changes
       - name: Build for check
         run: dotnet build -warnaserror
+      - name: Format check
+        run: dotnet format --verify-no-changes
       - name: Test
         run: dotnet test --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
       - name: Build and analyze
