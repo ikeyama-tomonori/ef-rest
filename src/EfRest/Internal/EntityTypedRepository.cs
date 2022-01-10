@@ -3,12 +3,13 @@ using System.Net.Http;
 using System.Threading;
 using CloudCqs;
 
-namespace EfRest.Internal
-{
-    internal record EntityTypedRepository(
-        INewId<(string content, CancellationToken cancellationToken), string> CreateNewId,
-        ICommand<(string id, string content, CancellationToken cancellationToken)> UpdateCommand,
-        IQuery<(string id, NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage> GetOneQuery,
-        ICommand<(string id, CancellationToken cancellationToken)> DeleteCommand,
-        IQuery<(NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage> GetListQuery);
-}
+namespace EfRest.Internal;
+
+internal record EntityTypedRepository(
+    INewId<(string content, CancellationToken cancellationToken), string> CreateNewId,
+    ICommand<(string id, string content, CancellationToken cancellationToken)> UpdateCommand,
+    IQuery<(string id, NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage> GetOneQuery,
+    ICommand<(string id, CancellationToken cancellationToken)> DeleteCommand,
+    IQuery<(NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage> GetListQuery
+);
+

@@ -10,52 +10,52 @@ using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace EfRest.Swagger
+namespace EfRest.Swagger;
+
+public class EfRestSwagger
 {
-    public class EfRestSwagger
+    private readonly JsonSerializerOptions _jsonSerializerOptions;
+    private readonly Dictionary<string, Type> _resourceTypes;
+
+    public EfRestSwagger(DbContext db, JsonSerializerOptions jsonSerializerOptions)
     {
-        private readonly JsonSerializerOptions _jsonSerializerOptions;
-        private readonly Dictionary<string, Type> _resourceTypes;
-
-        public EfRestSwagger(DbContext db, JsonSerializerOptions jsonSerializerOptions)
-        {
-            _jsonSerializerOptions = jsonSerializerOptions;
-            _resourceTypes = db
-                .GetType()
-                .GetProperties()
-                .Where(pi => pi.PropertyType.IsGenericType
-                    && pi.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
-                .Select(pi =>
-                {
-                    var type = pi.PropertyType.GetGenericArguments().First();
-                    var jsonPropertyNameAttribute = pi.GetCustomAttribute<JsonPropertyNameAttribute>();
-                    var name =
-                        jsonPropertyNameAttribute == null
-                        ? _jsonSerializerOptions.PropertyNamingPolicy?
-                            .ConvertName(pi.Name)
-                            ?? pi.Name
-                        : jsonPropertyNameAttribute.Name;
-                    return (name, type);
-                })
-                .ToDictionary(t => t.name, t => t.type);
-        }
-
-        public OpenApiDocument GetSwagger(string documentName, string documentVersion, string? host = null, string? basePath = null)
-        {
-            var entities = _resourceTypes;
-            var generatorOptions = new SchemaGeneratorOptions();
-            var serializerDataContractResolver = new JsonSerializerDataContractResolver(_jsonSerializerOptions);
-            var schemaGenerator = new SchemaGenerator(generatorOptions, serializerDataContractResolver);
-            var schemaRepository = new SchemaRepository();
-
-            var pathItems = entities.Select(entity =>
+        _jsonSerializerOptions = jsonSerializerOptions;
+        _resourceTypes = db
+            .GetType()
+            .GetProperties()
+            .Where(pi => pi.PropertyType.IsGenericType
+                && pi.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+            .Select(pi =>
             {
-                var schema = schemaGenerator.GenerateSchema(entity.Value, schemaRepository);
-                var tags = new[] { new OpenApiTag { Name = entity.Key } };
-                var pathItem = new OpenApiPathItem
+                var type = pi.PropertyType.GetGenericArguments().First();
+                var jsonPropertyNameAttribute = pi.GetCustomAttribute<JsonPropertyNameAttribute>();
+                var name =
+                    jsonPropertyNameAttribute == null
+                    ? _jsonSerializerOptions.PropertyNamingPolicy?
+                        .ConvertName(pi.Name)
+                        ?? pi.Name
+                    : jsonPropertyNameAttribute.Name;
+                return (name, type);
+            })
+            .ToDictionary(t => t.name, t => t.type);
+    }
+
+    public OpenApiDocument GetSwagger(string documentName, string documentVersion, string? host = null, string? basePath = null)
+    {
+        var entities = _resourceTypes;
+        var generatorOptions = new SchemaGeneratorOptions();
+        var serializerDataContractResolver = new JsonSerializerDataContractResolver(_jsonSerializerOptions);
+        var schemaGenerator = new SchemaGenerator(generatorOptions, serializerDataContractResolver);
+        var schemaRepository = new SchemaRepository();
+
+        var pathItems = entities.Select(entity =>
+        {
+            var schema = schemaGenerator.GenerateSchema(entity.Value, schemaRepository);
+            var tags = new[] { new OpenApiTag { Name = entity.Key } };
+            var pathItem = new OpenApiPathItem
+            {
+                Operations =
                 {
-                    Operations =
-                    {
                         [OperationType.Post] = new()
                         {
                             Tags = tags,
@@ -211,13 +211,13 @@ namespace EfRest.Swagger
                                 }
                             }
                         }
-                    }
-                };
+                }
+            };
 
-                var pathItemWithId = new OpenApiPathItem
+            var pathItemWithId = new OpenApiPathItem
+            {
+                Operations =
                 {
-                    Operations =
-                    {
                         [OperationType.Get] = new()
                         {
                             Tags = tags,
@@ -377,38 +377,37 @@ namespace EfRest.Swagger
                                 }
                             }
                         }
-                    }
-                };
-                return (entity.Key, pathItem, pathItemWithId);
-            });
-
-            var paths = new OpenApiPaths();
-            foreach (var (name, pathItem, pathItemWithId) in pathItems)
-            {
-                paths.Add($"/{name}", pathItem);
-                paths.Add($"/{name}/{{id}}", pathItemWithId);
-            }
-
-            var swaggerDoc = new OpenApiDocument
-            {
-                Info = new()
-                {
-                    Title = documentName,
-                    Version = documentVersion
-                },
-                Servers =
-                    host == null && basePath == null
-                    ? Array.Empty<OpenApiServer>()
-                    : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
-                Paths = paths,
-                Components = new OpenApiComponents
-                {
-                    Schemas = schemaRepository.Schemas
-                },
-
+                }
             };
+            return (entity.Key, pathItem, pathItemWithId);
+        });
 
-            return swaggerDoc;
+        var paths = new OpenApiPaths();
+        foreach (var (name, pathItem, pathItemWithId) in pathItems)
+        {
+            paths.Add($"/{name}", pathItem);
+            paths.Add($"/{name}/{{id}}", pathItemWithId);
         }
+
+        var swaggerDoc = new OpenApiDocument
+        {
+            Info = new()
+            {
+                Title = documentName,
+                Version = documentVersion
+            },
+            Servers =
+                host == null && basePath == null
+                ? Array.Empty<OpenApiServer>()
+                : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
+            Paths = paths,
+            Components = new OpenApiComponents
+            {
+                Schemas = schemaRepository.Schemas
+            },
+
+        };
+
+        return swaggerDoc;
     }
 }

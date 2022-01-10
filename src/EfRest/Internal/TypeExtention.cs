@@ -6,67 +6,67 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace EfRest.Internal
+namespace EfRest.Internal;
+
+internal static class TypeExtention
 {
-    internal static class TypeExtention
+    public static PropertyInfo? GetPropertyInfoByJsonName(
+        this Type type,
+        string name,
+        JsonSerializerOptions jsonSerializerOptions,
+        params Type[]? ignoreAttributes)
     {
-        public static PropertyInfo? GetPropertyInfoByJsonName(
-            this Type type,
-            string name,
-            JsonSerializerOptions jsonSerializerOptions,
-            params Type[]? ignoreAttributes)
-        {
-            var ignores = ignoreAttributes ?? new[] { typeof(JsonIgnoreAttribute), typeof(NotMappedAttribute) };
-            var stringComparison = jsonSerializerOptions.PropertyNameCaseInsensitive
-                    ? StringComparison.OrdinalIgnoreCase
-                    : StringComparison.Ordinal;
-            var properties = type
-                .GetProperties()
-                .FirstOrDefault(propertyInfo =>
+        var ignores = ignoreAttributes ?? new[] { typeof(JsonIgnoreAttribute), typeof(NotMappedAttribute) };
+        var stringComparison = jsonSerializerOptions.PropertyNameCaseInsensitive
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+        var properties = type
+            .GetProperties()
+            .FirstOrDefault(propertyInfo =>
+            {
+                var attributeTypes = propertyInfo.GetCustomAttributes().Select(attr => attr.GetType());
+                if (attributeTypes.Intersect(ignores).Any()) return false;
+
+                var jsonPropertyNameAttribute = propertyInfo
+                    .GetCustomAttribute<JsonPropertyNameAttribute>();
+
+                if (jsonPropertyNameAttribute != null)
                 {
-                    var attributeTypes = propertyInfo.GetCustomAttributes().Select(attr => attr.GetType());
-                    if (attributeTypes.Intersect(ignores).Any()) return false;
+                    return jsonPropertyNameAttribute.Name.Equals(name, stringComparison);
+                }
+                var convertedName = jsonSerializerOptions
+                    .PropertyNamingPolicy?
+                    .ConvertName(propertyInfo.Name)
+                    ?? propertyInfo.Name;
+                return convertedName.Equals(name, stringComparison);
+            });
+        return properties;
+    }
 
-                    var jsonPropertyNameAttribute = propertyInfo
-                        .GetCustomAttribute<JsonPropertyNameAttribute>();
-
-                    if (jsonPropertyNameAttribute != null)
+    public static Expression? GetMemberExpressionByJsonName(
+        this Type type,
+        string name,
+        Expression parameter,
+        JsonSerializerOptions jsonSerializerOptions)
+    {
+        (Expression expression, Type type)? seed = (expression: parameter, type);
+        var member = name
+            .Split('.')
+            .Aggregate(
+                seed,
+                (accumulator, current) =>
+                {
+                    if (accumulator is (Expression param, Type type))
                     {
-                        return jsonPropertyNameAttribute.Name.Equals(name, stringComparison);
+                        var propertyInfo = type.GetPropertyInfoByJsonName(current, jsonSerializerOptions);
+                        if (propertyInfo == null) return null;
+                        var memberAccess = Expression.MakeMemberAccess(param, propertyInfo);
+                        return (memberAccess, propertyInfo.PropertyType);
                     }
-                    var convertedName = jsonSerializerOptions
-                        .PropertyNamingPolicy?
-                        .ConvertName(propertyInfo.Name)
-                        ?? propertyInfo.Name;
-                    return convertedName.Equals(name, stringComparison);
-                });
-            return properties;
-        }
-
-        public static Expression? GetMemberExpressionByJsonName(
-            this Type type,
-            string name,
-            Expression parameter,
-            JsonSerializerOptions jsonSerializerOptions)
-        {
-            (Expression expression, Type type)? seed = (expression: parameter, type);
-            var member = name
-                .Split('.')
-                .Aggregate(
-                    seed,
-                    (accumulator, current) =>
-                    {
-                        if (accumulator is (Expression param, Type type))
-                        {
-                            var propertyInfo = type.GetPropertyInfoByJsonName(current, jsonSerializerOptions);
-                            if (propertyInfo == null) return null;
-                            var memberAccess = Expression.MakeMemberAccess(param, propertyInfo);
-                            return (memberAccess, propertyInfo.PropertyType);
-                        }
-                        return null;
-                    })?
-                .expression;
-            return member;
-        }
+                    return null;
+                })?
+            .expression;
+        return member;
     }
 }
+
