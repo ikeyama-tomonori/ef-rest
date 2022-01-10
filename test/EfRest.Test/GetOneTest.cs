@@ -4,20 +4,19 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EfRest.Test
+namespace EfRest.Test;
+
+[TestClass]
+public class GetOneTest
 {
-    using Example.Model;
+    public Book[] Books { get; }
 
-    [TestClass]
-    public class GetOneTest
+    public GetOneTest()
     {
-        public Book[] Books { get; }
-
-        public GetOneTest()
-        {
-            Books = new[]
+        Books = new[]
 {
                 new Book
                 {
@@ -59,78 +58,77 @@ namespace EfRest.Test
                     }
                 },
             };
-        }
+    }
 
-        [TestMethod]
-        public async Task Normal_id()
+    [TestMethod]
+    public async Task Normal_id()
+    {
+        var db = new BookDbContext();
+        var baseAddress = new Uri("http://localhost/api/");
+        var server = new EfRestServer(baseAddress)
         {
-            var db = new BookDbContext();
-            var baseAddress = new Uri("http://localhost/api/");
-            var server = new EfRestServer(baseAddress)
-            {
-                CloudCqsOptions = Options.Instance,
-            };
-            server.Init(db);
-            var handler = server.GetHandler();
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = baseAddress
-            };
-
-            await db.Books.AddRangeAsync(Books);
-            await db.SaveChangesAsync();
-
-            var id = Books.Single(b => b.Title == "War and Peace").Id;
-            var response = await client.GetFromJsonAsync<Book>($"Books/{id}");
-            Assert.AreEqual("War and Peace", response?.Title);
-        }
-
-        [TestMethod]
-        public async Task Invalid_id_format()
+            CloudCqsOptions = Options.Instance,
+        };
+        server.Init(db);
+        var handler = server.GetHandler();
+        using var client = new HttpClient(handler)
         {
-            var db = new BookDbContext();
-            var baseAddress = new Uri("http://localhost/api/");
-            var server = new EfRestServer(baseAddress)
-            {
-                CloudCqsOptions = Options.Instance,
-            };
-            server.Init(db);
-            var handler = server.GetHandler();
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = baseAddress
-            };
+            BaseAddress = baseAddress
+        };
 
-            await db.Books.AddRangeAsync(Books);
-            await db.SaveChangesAsync();
+        await db.Books.AddRangeAsync(Books);
+        await db.SaveChangesAsync();
 
-            var response = await client.GetAsync($"Books/x");
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
-        }
+        var id = Books.Single(b => b.Title == "War and Peace").Id;
+        var response = await client.GetFromJsonAsync<Book>($"Books/{id}");
+        Assert.AreEqual("War and Peace", response?.Title);
+    }
 
-        [TestMethod]
-        public async Task Invalid_id_out_of_range()
+    [TestMethod]
+    public async Task Invalid_id_format()
+    {
+        var db = new BookDbContext();
+        var baseAddress = new Uri("http://localhost/api/");
+        var server = new EfRestServer(baseAddress)
         {
-            var db = new BookDbContext();
-            var baseAddress = new Uri("http://localhost/api/");
-            var server = new EfRestServer(baseAddress)
-            {
-                CloudCqsOptions = Options.Instance,
-            };
-            server.Init(db);
-            var handler = server.GetHandler();
-            using var client = new HttpClient(handler)
-            {
-                BaseAddress = baseAddress
-            };
+            CloudCqsOptions = Options.Instance,
+        };
+        server.Init(db);
+        var handler = server.GetHandler();
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = baseAddress
+        };
 
-            await db.Books.AddRangeAsync(Books);
-            await db.SaveChangesAsync();
+        await db.Books.AddRangeAsync(Books);
+        await db.SaveChangesAsync();
 
-            var maxId = db.Books.Max(b => b.Id);
+        var response = await client.GetAsync($"Books/x");
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+    }
 
-            var response = await client.GetAsync($"Books/{maxId + 1}");
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
-        }
+    [TestMethod]
+    public async Task Invalid_id_out_of_range()
+    {
+        var db = new BookDbContext();
+        var baseAddress = new Uri("http://localhost/api/");
+        var server = new EfRestServer(baseAddress)
+        {
+            CloudCqsOptions = Options.Instance,
+        };
+        server.Init(db);
+        var handler = server.GetHandler();
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = baseAddress
+        };
+
+        await db.Books.AddRangeAsync(Books);
+        await db.SaveChangesAsync();
+
+        var maxId = db.Books.Max(b => b.Id);
+
+        var response = await client.GetAsync($"Books/{maxId + 1}");
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
