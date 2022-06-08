@@ -62,15 +62,20 @@ public class EfRestServer
     public async Task<HttpResponseMessage> GetOne(string name, string id, NameValueCollection param, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var response = await repository.GetOneQuery(cancellationToken).Invoke((id, param));
+        var json = await repository.GetOneFacade(cancellationToken).Invoke((id, param["embed"]));
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = content
+        };
         return response;
     }
 
     public async Task<HttpResponseMessage> AddOne(string name, string item, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var id = await repository.CreateNewId(cancellationToken).Invoke(item);
-        var response = await repository.GetOneQuery(cancellationToken).Invoke((id, new()));
+        var id = await repository.CreateFacade(cancellationToken).Invoke(item);
+        var response = await GetOne(name, id, new(), cancellationToken);
         response.StatusCode = HttpStatusCode.Created;
         response.Headers.Location = new Uri($"{BaseAddress.AbsolutePath}{name}/{id}", UriKind.Relative);
         return response;
@@ -80,14 +85,14 @@ public class EfRestServer
     {
         var repository = GetRepositoryFactory(name);
         await repository.UpdateCommand(cancellationToken).Invoke((id, item));
-        var response = await repository.GetOneQuery(cancellationToken).Invoke((id, new()));
+        var response = await GetOne(name, id, new(), cancellationToken);
         return response;
     }
 
     public async Task<HttpResponseMessage> RemoveOne(string name, string id, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var response = await repository.GetOneQuery(cancellationToken).Invoke((id, new()));
+        var response = await GetOne(name, id, new(), cancellationToken);
         await repository.DeleteCommand(cancellationToken).Invoke(id);
         return response;
     }
@@ -186,18 +191,58 @@ public class EfRestServer
             });
         }
         var entityType = propertyInfo.PropertyType.GetGenericArguments().First();
-        var createRepositoryFactory = GetType()
+        var getRepositoryFactoryWithKey = GetType()
             .GetMethod(
-                nameof(CreateRepositoryFactory),
+                nameof(GetRepositoryFactoryWithKey),
                 BindingFlags.InvokeMethod
 #pragma warning disable S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
                     | BindingFlags.NonPublic
 #pragma warning restore S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
                     | BindingFlags.Instance)?
             .MakeGenericMethod(entityType);
+        if (getRepositoryFactoryWithKey == null)
+        {
+            throw new NullGuardException(nameof(getRepositoryFactoryWithKey));
+        }
+        var result = getRepositoryFactoryWithKey.Invoke(this, null);
+        if (result is RepositoryFactory repository)
+        {
+            return repository;
+        }
+        throw new TypeGuardException(typeof(RepositoryFactory), result);
+    }
+
+    private RepositoryFactory GetRepositoryFactoryWithKey<TEntity>()
+        where TEntity : class
+    {
+        if (DbContext == null) throw new NullGuardException(nameof(DbContext));
+        var dbSet = DbContext.Set<TEntity>();
+        var keyType = dbSet
+            .EntityType
+            .FindPrimaryKey()?
+            .Properties
+            .SingleOrDefault()?
+            .PropertyInfo?
+            .PropertyType;
+        if (keyType == null)
+        {
+            throw new BadRequestException(new()
+            {
+                ["resource"] = new[] { $"Entity must have single primary key." }
+            });
+        }
+        var createRepositoryFactory = GetType()
+            .GetMethod(
+                nameof(CreateRepositoryFactory),
+                BindingFlags.InvokeMethod
+#pragma warning disable S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
+                | BindingFlags.NonPublic
+#pragma warning restore S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
+                | BindingFlags.Instance)?
+            .MakeGenericMethod(typeof(TEntity), keyType);
         if (createRepositoryFactory == null)
         {
-            throw new NullGuardException(nameof(createRepositoryFactory));
+            throw new NullGuardException(nameof(CreateRepositoryFactory));
         }
         var result = createRepositoryFactory.Invoke(this, null);
         if (result is RepositoryFactory repository)
@@ -207,14 +252,19 @@ public class EfRestServer
         throw new TypeGuardException(typeof(RepositoryFactory), result);
     }
 
-    private RepositoryFactory CreateRepositoryFactory<TEntity>()
+    private RepositoryFactory CreateRepositoryFactory<TEntity, TKey>()
         where TEntity : class
+        where TKey : notnull
     {
         if (DbContext == null) throw new NullGuardException(nameof(DbContext));
         return new(
-            cancellationToken => new CreateNewId<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+            cancellationToken => new CreateFacade<TEntity, TKey>(CloudCqsOptions,
+                new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                JsonSerializerOptions),
             cancellationToken => new UpdateCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-            cancellationToken => new GetOneQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+            cancellationToken => new GetOneFacade<TEntity, TKey>(CloudCqsOptions,
+                new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                JsonSerializerOptions),
             cancellationToken => new DeleteCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
             cancellationToken => new GetListFacade<TEntity>(CloudCqsOptions,
                 new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),

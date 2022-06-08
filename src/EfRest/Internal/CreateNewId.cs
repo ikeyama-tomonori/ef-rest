@@ -8,31 +8,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;
 
-internal class CreateNewId<TEntity> : NewId<string, string>
-        where TEntity : class
+internal class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
+    where TEntity : class
+    where TKey : notnull
 {
     public CreateNewId(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
     {
         var handler = new Handler()
-            .Then("Deserialize json", p =>
-            {
-                var content = p;
-                try
-                {
-                    var entity = JsonSerializer.Deserialize<TEntity>(
-                        content,
-                        jsonSerializerOptions);
-                    if (entity == null) throw new NullGuardException(nameof(entity));
-                    return entity;
-                }
-                catch (JsonException exception)
-                {
-                    throw new BadRequestException(new()
-                    {
-                        ["body"] = new[] { exception.Message }
-                    });
-                }
-            })
             .Then("Get key's PropertyInfo", p =>
             {
                 var entity = p;
@@ -74,14 +56,15 @@ internal class CreateNewId<TEntity> : NewId<string, string>
                 await db.SaveChangesAsync(cancellationToken);
                 return (entity, propertyInfo);
             })
-            .Then("Serialize id value", p =>
+            .Then("Return id value", p =>
             {
                 var (entity, propertyInfo) = p;
                 var value = propertyInfo.GetValue(entity);
-                var id = JsonSerializer.Serialize(value, jsonSerializerOptions);
-                return id;
+                if (value == null) throw new NullGuardException(nameof(value));
+                return (TKey)value;
             })
             .Build();
+
         SetHandler(handler);
     }
 }
