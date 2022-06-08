@@ -7,16 +7,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;
 
-internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken cancellationToken)>
+internal class DeleteCommand<TEntity> : Command<string>
         where TEntity : class
 {
-    public DeleteCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+    public DeleteCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken)
         : base(option)
     {
         var handler = new Handler()
             .Then("Get key's PropertyInfo", p =>
             {
-                var (id, cancellationToken) = p;
+                var id = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -31,11 +31,11 @@ internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken ca
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (cancellationToken, id, propertyInfo);
+                return (id, propertyInfo);
             })
             .Then("Get key's value", p =>
             {
-                var (cancellationToken, id, propertyInfo) = p;
+                var (id, propertyInfo) = p;
                 try
                 {
                     var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
@@ -46,7 +46,7 @@ internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken ca
                             ["id"] = new[] { $"Id can not be null: {id}" }
                         });
                     }
-                    return (cancellationToken, idValue);
+                    return idValue;
                 }
                 catch (JsonException e)
                 {
@@ -58,7 +58,7 @@ internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken ca
             })
             .Then("Get current entity", async p =>
             {
-                var (cancellationToken, idValue) = p;
+                var idValue = p;
                 var entity = await db
                     .Set<TEntity>()
                     .FindAsync(new[] { idValue }, cancellationToken);
@@ -69,17 +69,15 @@ internal class DeleteCommand<TEntity> : Command<(string id, CancellationToken ca
                         ["id"] = new[] { $"Not found: {idValue}" }
                     });
                 }
-                return (cancellationToken, entity);
+                return entity;
             })
             .Then("Delete entity", p =>
             {
-                var (cancellationToken, entity) = p;
+                var entity = p;
                 db.Set<TEntity>().Remove(entity);
-                return cancellationToken;
             })
-            .Then("Save to database", async p =>
+            .Then("Save to database", async _ =>
             {
-                var cancellationToken = p;
                 await db.SaveChangesAsync(cancellationToken);
             })
             .Build();

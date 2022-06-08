@@ -8,22 +8,22 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;
 
-internal class CreateNewId<TEntity> : NewId<(string item, CancellationToken cancellationToken), string>
+internal class CreateNewId<TEntity> : NewId<string, string>
         where TEntity : class
 {
-    public CreateNewId(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
+    public CreateNewId(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
     {
         var handler = new Handler()
             .Then("Deserialize json", p =>
             {
-                var (content, cancellationToken) = p;
+                var content = p;
                 try
                 {
                     var entity = JsonSerializer.Deserialize<TEntity>(
                         content,
                         jsonSerializerOptions);
                     if (entity == null) throw new NullGuardException(nameof(entity));
-                    return (cancellationToken, entity);
+                    return entity;
                 }
                 catch (JsonException exception)
                 {
@@ -33,15 +33,9 @@ internal class CreateNewId<TEntity> : NewId<(string item, CancellationToken canc
                     });
                 }
             })
-            .Then("Validate by annotations", p =>
-            {
-                var (cancellationToken, entity) = p;
-                entity.Validate();
-                return (cancellationToken, entity);
-            })
             .Then("Get key's PropertyInfo", p =>
             {
-                var (cancellationToken, entity) = p;
+                var entity = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -56,27 +50,27 @@ internal class CreateNewId<TEntity> : NewId<(string item, CancellationToken canc
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (cancellationToken, entity, propertyInfo);
+                return (entity, propertyInfo);
             })
             .Then("Reset key as defualt", p =>
             {
-                var (cancellationToken, entity, propertyInfo) = p;
+                var (entity, propertyInfo) = p;
                 var value =
                     propertyInfo.PropertyType.IsValueType
                     ? Activator.CreateInstance(propertyInfo.PropertyType)
                     : null;
                 propertyInfo.SetValue(entity, value);
-                return (cancellationToken, entity, propertyInfo);
+                return (entity, propertyInfo);
             })
             .Then("Add to DbSet", async p =>
             {
-                var (cancellationToken, entity, propertyInfo) = p;
+                var (entity, propertyInfo) = p;
                 await db.Set<TEntity>().AddAsync(entity, cancellationToken);
-                return (cancellationToken, entity, propertyInfo);
+                return (entity, propertyInfo);
             })
             .Then("Save to database", async p =>
             {
-                var (cancellationToken, entity, propertyInfo) = p;
+                var (entity, propertyInfo) = p;
                 await db.SaveChangesAsync(cancellationToken);
                 return (entity, propertyInfo);
             })

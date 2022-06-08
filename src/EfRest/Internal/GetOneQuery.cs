@@ -14,25 +14,25 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;
 
-internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage>
+internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection param), HttpResponseMessage>
         where TEntity : class
 {
-    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
+    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
     {
         var handler = new Handler()
             .Then("Create base query", p =>
             {
-                var (id, param, cancellationToken) = p;
+                var (id, param) = p;
                 var query = db
                     .Set<TEntity>()
                     .AsNoTracking();
-                return (cancellationToken, query, id, param);
+                return (query, id, param);
             })
             .Then("(embed) Parse json object", p =>
             {
-                var (cancellationToken, query, id, param) = p;
+                var (query, id, param) = p;
                 var json = param["embed"];
-                if (json == null) return (cancellationToken, query, id, embed: Array.Empty<string>());
+                if (json == null) return (query, id, embed: Array.Empty<string>());
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -41,7 +41,7 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         ["embed"] = new[] { $"Invalid json array: {json}" }
                     });
 
-                    return (cancellationToken, query, id, embed);
+                    return (query, id, embed);
                 }
                 catch (JsonException e)
                 {
@@ -53,7 +53,7 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
             })
             .Then("(embed) Convert json property names to EF's", p =>
             {
-                var (cancellationToken, query, id, embed) = p;
+                var (query, id, embed) = p;
                 var convertedNames = embed
                     .Select(embedItem =>
                     {
@@ -93,18 +93,18 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         return includeName;
                     })
                     .ToArray();
-                return (cancellationToken, query, id, embed: convertedNames);
+                return (query, id, embed: convertedNames);
             })
             .Then("(embed) Apply embed", p =>
             {
-                var (cancellationToken, query, id, embed) = p;
+                var (query, id, embed) = p;
                 var embedQuery = embed
                     .Aggregate(query, (acc, cur) => acc.Include(cur));
-                return (cancellationToken, query: embedQuery, id);
+                return (query: embedQuery, id);
             })
             .Then("Get key's PropertyInfo", p =>
             {
-                var (cancellationToken, query, id) = p;
+                var (query, id) = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -119,15 +119,15 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (cancellationToken, query, id, propertyInfo);
+                return (query, id, propertyInfo);
             })
             .Then("Convert id to key's value", p =>
             {
-                var (cancellationToken, query, id, propertyInfo) = p;
+                var (query, id, propertyInfo) = p;
                 try
                 {
                     var value = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
-                    return (cancellationToken, query, value, propertyInfo);
+                    return (query, value, propertyInfo);
                 }
                 catch (JsonException e)
                 {
@@ -139,18 +139,18 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
             })
             .Then("Create where expression", p =>
             {
-                var (cancellationToken, query, value, propertyInfo) = p;
+                var (query, value, propertyInfo) = p;
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 var memberAccess = Expression.MakeMemberAccess(entityParameter, propertyInfo);
                 var valueExpression = Expression.Convert(Expression.Constant(value), propertyInfo.PropertyType);
                 var body = Expression.Equal(memberAccess, valueExpression);
                 var predicate = Expression.Lambda<Func<TEntity, bool>>(body, entityParameter);
 
-                return (cancellationToken, value, query: query.Where(predicate));
+                return (value, query: query.Where(predicate));
             })
             .Then("Run query", async p =>
             {
-                var (cancellationToken, value, query) = p;
+                var (value, query) = p;
                 var data = await query.SingleOrDefaultAsync(cancellationToken);
                 if (data == null)
                 {

@@ -8,16 +8,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;
 
-internal class UpdateCommand<TEntity> : Command<(string id, string content, CancellationToken cancellationToken)>
+internal class UpdateCommand<TEntity> : Command<(string id, string content)>
         where TEntity : class
 {
-    public UpdateCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+    public UpdateCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken)
         : base(option)
     {
         var handler = new Handler()
             .Then("Get key's PropertyInfo", p =>
             {
-                var (id, content, cancellationToken) = p;
+                var (id, content) = p;
                 var propertyInfo = db
                     .Set<TEntity>()
                     .EntityType
@@ -32,15 +32,15 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (cancellationToken, id, content, propertyInfo);
+                return (id, content, propertyInfo);
             })
             .Then("Get key's value", p =>
             {
-                var (cancellationToken, id, content, propertyInfo) = p;
+                var (id, content, propertyInfo) = p;
                 try
                 {
                     var idValue = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
-                    return (cancellationToken, idValue, content, propertyInfo);
+                    return (idValue, content, propertyInfo);
                 }
                 catch (JsonException e)
                 {
@@ -52,7 +52,7 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
             })
             .Then("Get current entity", async p =>
             {
-                var (cancellationToken, idValue, content, propertyInfo) = p;
+                var (idValue, content, propertyInfo) = p;
                 var entity = await db
                     .Set<TEntity>()
                     .FindAsync(new[] { idValue }, cancellationToken);
@@ -63,11 +63,11 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
                         ["id"] = new[] { $"Not found: {idValue}" }
                     });
                 }
-                return (cancellationToken, content, entity, keyName: propertyInfo.Name);
+                return (content, entity, keyName: propertyInfo.Name);
             })
             .Then("Parse json", p =>
            {
-               var (cancellationToken, content, entity, keyName) = p;
+               var (content, entity, keyName) = p;
                try
                {
                    var json = content;
@@ -84,11 +84,10 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
                        .EnumerateObject()
                        .Select(jsonProperty => (
                            name: jsonProperty.Name,
-                           json: jsonProperty.Value.GetRawText(),
-                           kind: jsonProperty.Value.ValueKind))
+                           json: jsonProperty.Value.GetRawText()))
                        .ToArray();
 
-                   return (cancellationToken, entity, properties, keyName);
+                   return (entity, properties, keyName);
                }
                catch (JsonException exception)
                {
@@ -100,11 +99,11 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
            })
             .Then("Convert json properties", p =>
             {
-                var (cancellationToken, entity, properties, keyName) = p;
+                var (entity, properties, keyName) = p;
                 var propertyValues = properties
                     .Select(jsonProperty =>
                     {
-                        var (propertyName, json, kind) = jsonProperty;
+                        var (propertyName, json) = jsonProperty;
                         var propertyInfo = typeof(TEntity)
                             .GetPropertyInfoByJsonName(propertyName, jsonSerializerOptions, typeof(JsonIgnoreAttribute));
                         if (propertyInfo == null)
@@ -132,26 +131,18 @@ internal class UpdateCommand<TEntity> : Command<(string id, string content, Canc
                     })
                     .Where(p => p.propertyInfo.Name != keyName)
                     .ToArray();
-                return (cancellationToken, entity, propertyValues);
+                return (entity, propertyValues);
             })
             .Then("Update current values", p =>
             {
-                var (cancellationToken, entity, propertyValues) = p;
+                var (entity, propertyValues) = p;
                 foreach (var (propertyInfo, value) in propertyValues)
                 {
                     propertyInfo.SetValue(entity, value);
                 }
-                return (cancellationToken, entity);
             })
-            .Then("Validate by annotations", p =>
+            .Then("Save to database", async _ =>
             {
-                var (cancellationToken, entity) = p;
-                entity.Validate();
-                return (cancellationToken, entity);
-            })
-            .Then("Save to database", async p =>
-            {
-                var (cancellationToken, entity) = p;
                 await db.SaveChangesAsync(cancellationToken);
             })
             .Build();

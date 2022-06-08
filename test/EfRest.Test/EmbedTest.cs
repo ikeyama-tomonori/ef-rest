@@ -54,7 +54,7 @@ public class EmbedTest
     {
         var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            ReferenceHandler = ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.IgnoreCycles
         };
 
         var db = new BookDbContext();

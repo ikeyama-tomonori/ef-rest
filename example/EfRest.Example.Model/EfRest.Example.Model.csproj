@@ -4,4 +4,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CloudCqs" Version="0.5.3" />
+  </ItemGroup>
 </Project>
