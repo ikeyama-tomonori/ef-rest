@@ -167,35 +167,4 @@ public class UpdateTest
         var response = await client.PutAsJsonAsync($"Books/{book.Id}", "xxx");
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
     }
-
-    [TestMethod]
-    public async Task Invalid_body_with_annotation()
-    {
-        var db = new BookDbContext();
-        var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
-        {
-            CloudCqsOptions = Options.Instance
-        };
-        server.Init(db);
-        var handler = server.GetHandler();
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
-
-        var book = new Book
-        {
-            Title = "New Book"
-        };
-        await db.Books.AddAsync(book);
-        await db.SaveChangesAsync();
-
-        var modifiedBook = new Book
-        {
-            Title = ""
-        };
-        var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
-        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
-    }
 }
