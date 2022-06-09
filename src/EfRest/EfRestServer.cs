@@ -258,17 +258,22 @@ public class EfRestServer
     {
         if (DbContext == null) throw new NullGuardException(nameof(DbContext));
         return new(
-            cancellationToken => new CreateFacade<TEntity, TKey>(CloudCqsOptions,
-                new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-                JsonSerializerOptions),
+            cancellationToken => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
+                repository: (new JsonDeserializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions),
+                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken),
+                            new JsonSerializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions))),
+
             cancellationToken => new UpdateCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-            cancellationToken => new GetOneFacade<TEntity, TKey>(CloudCqsOptions,
-                new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-                JsonSerializerOptions),
+
+            cancellationToken => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
+                repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions),
+                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                            new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
+
             cancellationToken => new DeleteCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-            cancellationToken => new GetListFacade<TEntity>(CloudCqsOptions,
-                new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
-                JsonSerializerOptions)
-            );
+
+            cancellationToken => new GetListFacade<TEntity>(option: CloudCqsOptions,
+                repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                            new JsonSerializeQuery<TEntity[]>(CloudCqsOptions, JsonSerializerOptions))));
     }
 }

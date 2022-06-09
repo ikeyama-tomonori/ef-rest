@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using CloudCqs;
+﻿using CloudCqs;
 using CloudCqs.Facade;
 
 namespace EfRest.Internal;
@@ -9,40 +8,26 @@ internal class CreateFacade<TEntity, TKey> : Facade<string, string>
     where TKey : notnull
 {
     public CreateFacade(CloudCqsOptions option,
+        (IQuery<string, TEntity> jsonDeserializeQuery,
         INewId<TEntity, TKey> createNewId,
-        JsonSerializerOptions jsonSerializerOptions) : base(option)
+        IQuery<TKey, string> jsonSerializeQuery) repository)
+        : base(option)
     {
         var handler = new Handler()
-            .Then("Deserialize json", p =>
-            {
-                var content = p;
-                try
-                {
-                    var entity = JsonSerializer.Deserialize<TEntity>(
-                        content,
-                        jsonSerializerOptions);
-                    if (entity == null) throw new NullGuardException(nameof(entity));
-                    return entity;
-                }
-                catch (JsonException exception)
-                {
-                    throw new BadRequestException(new()
-                    {
-                        ["body"] = new[] { exception.Message }
-                    });
-                }
-            })
-            .Invoke($"Invoke {createNewId}",
-                createNewId,
+            .Invoke("Invoke json deserializer to convert data",
+                repository.jsonDeserializeQuery,
                 p => p,
                 p => p.response)
-            .Then("Serialize id value", p =>
-            {
-                var value = p;
-                var id = JsonSerializer.Serialize(value, jsonSerializerOptions);
-                return id;
-            })
+            .Invoke("Invoke create data",
+                repository.createNewId,
+                p => p,
+                p => p.response)
+            .Invoke("Invoke json serializer to convert id value",
+                repository.jsonSerializeQuery,
+                p => p,
+                p => p.response)
             .Build();
+
         SetHandler(handler);
     }
 }

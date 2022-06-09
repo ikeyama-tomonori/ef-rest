@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using CloudCqs;
+﻿using CloudCqs;
 using CloudCqs.Facade;
 
 namespace EfRest.Internal;
@@ -10,22 +9,20 @@ internal class GetListFacade<TEntity>
     where TEntity : class
 {
     public GetListFacade(CloudCqsOptions option,
-        IQuery<(string? embed, string? filter, string? sort, string? range),
+        (IQuery<(string? embed, string? filter, string? sort, string? range),
             (TEntity[] data, int total, (int first, int last)? range)> getListQuery,
-        JsonSerializerOptions jsonSerializerOptions) : base(option)
+        IQuery<TEntity[], string> jsonSerializeQuery) repository)
+        : base(option)
     {
         var handler = new Handler()
-            .Invoke($"Invoke {nameof(getListQuery)}",
-                getListQuery,
+            .Invoke("Invoke data query",
+                repository.getListQuery,
                 p => p,
                 p => p.response)
-            .Then("Serialize data",
-            p =>
-            {
-                var (data, total, range) = p;
-                var json = JsonSerializer.Serialize(data, jsonSerializerOptions);
-                return (json, total, range);
-            })
+            .Invoke("Invoke data serializer",
+            repository.jsonSerializeQuery,
+            p => p.data,
+            p => (json: p.response, p.param.total, p.param.range))
             .Build();
 
         SetHandler(handler);

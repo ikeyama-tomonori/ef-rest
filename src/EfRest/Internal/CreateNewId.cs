@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using CloudCqs;
 using CloudCqs.NewId;
@@ -12,7 +11,7 @@ internal class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
     where TEntity : class
     where TKey : notnull
 {
-    public CreateNewId(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
+    public CreateNewId(CloudCqsOptions option, DbContext db, CancellationToken cancellationToken) : base(option)
     {
         var handler = new Handler()
             .Then("Get key's PropertyInfo", p =>
