@@ -93,7 +93,7 @@ public class EfRestServer
     {
         var repository = GetRepositoryFactory(name);
         var response = await GetOne(name, id, new(), cancellationToken);
-        await repository.DeleteCommand(cancellationToken).Invoke(id);
+        await repository.DeleteFacade(cancellationToken).Invoke(id);
         return response;
     }
 
@@ -270,7 +270,9 @@ public class EfRestServer
                             new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
                             new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
 
-            cancellationToken => new DeleteCommand<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+            cancellationToken => new DeleteFacade<TKey>(option: CloudCqsOptions,
+                repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions),
+                            new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken))),
 
             cancellationToken => new GetListFacade<TEntity>(option: CloudCqsOptions,
                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
