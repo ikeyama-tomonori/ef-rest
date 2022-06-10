@@ -16,13 +16,13 @@ jobs:
           dotnet-version: 6.0.x
       - name: publish EfRest
         id: publish_efrest
-        uses: rohith/publish-nuget@v2
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           PROJECT_FILE_PATH: src/EfRest/EfRest.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
       - name: publish EfRest.Swagger
         id: publish_efrest_swagger
-        uses: rohith/publish-nuget@v2
+        uses: alirezanet/publish-nuget@v3.0.4
         with:
           PROJECT_FILE_PATH: src/EfRest.Swagger/EfRest.Swagger.csproj
           NUGET_KEY: ${{secrets.NUGET_API_KEY}}
