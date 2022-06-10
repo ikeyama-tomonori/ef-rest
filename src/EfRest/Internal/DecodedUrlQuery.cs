@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Web;
 using CloudCqs;
 using CloudCqs.Query;
+using EfRest.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EfRest.Internal;

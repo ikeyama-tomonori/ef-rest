@@ -1,44 +1,39 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
+using EfRest.Extensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class GetListQuery<TEntity>
-        : Query<(NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage>
+public class GetListQuery<TEntity>
+        : Query<(string? embed, string? filter, string? sort, string? range), (TEntity[] data, int total, (int first, int last)? range)>
         where TEntity : class
 {
-    public GetListQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+    public GetListQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken)
         : base(option)
     {
         var handler = new Handler()
             .Then("Create base query", p =>
             {
-                var (param, cancellationToken) = p;
                 var query = db
                     .Set<TEntity>()
                     .AsNoTracking();
-                return (cancellationToken, query, param);
+                return (query, param: p);
             })
             .Then("(embed) Parse json object", p =>
             {
-                var (cancellationToken, query, param) = p;
-                var json = param["embed"];
-                if (json == null) return (cancellationToken, query, param, embed: Array.Empty<string>());
+                var (query, param) = p;
+                var json = param.embed;
+                if (string.IsNullOrEmpty(json)) return (query, param, embed: Array.Empty<string>());
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -47,7 +42,7 @@ internal class GetListQuery<TEntity>
                         ["embed"] = new[] { $"Invalid json array: {json}" }
                     });
 
-                    return (cancellationToken, query, param, embed);
+                    return (query, param, embed);
                 }
                 catch (JsonException e)
                 {
@@ -59,7 +54,7 @@ internal class GetListQuery<TEntity>
             })
             .Then("(embed) Convert json property names to EF's", p =>
             {
-                var (cancellationToken, query, param, embed) = p;
+                var (query, param, embed) = p;
                 var convertedNames = embed
                     .Select(embedItem =>
                     {
@@ -99,23 +94,22 @@ internal class GetListQuery<TEntity>
                         return includeName;
                     })
                     .ToArray();
-                return (cancellationToken, query, param, embed: convertedNames);
+                return (query, param, embed: convertedNames);
             })
             .Then("(embed) Apply embed", p =>
             {
-                var (cancellationToken, query, param, embed) = p;
+                var (query, param, embed) = p;
                 var embedQuery = embed
                     .Aggregate(query, (acc, cur) => acc.Include(cur));
-                return (cancellationToken, query: embedQuery, param);
+                return (query: embedQuery, param);
             })
             .Then("(filter) Parse  json", p =>
             {
-                var (cancellationToken, query, param) = p;
-                var json = param["filter"];
-                if (json == null)
+                var (query, param) = p;
+                var json = param.filter;
+                if (string.IsNullOrEmpty(json))
                 {
                     return (
-                        cancellationToken,
                         query,
                         param,
                         Array.Empty<(string name, string json, JsonValueKind kind)>());
@@ -139,7 +133,7 @@ internal class GetListQuery<TEntity>
                             kind: jsonProperty.Value.ValueKind))
                         .ToArray();
 
-                    return (cancellationToken, query, param, filters);
+                    return (query, param, filters);
                 }
                 catch (JsonException e)
                 {
@@ -151,14 +145,14 @@ internal class GetListQuery<TEntity>
             })
             .Then("(filter) Divide by search or not", p =>
             {
-                var (cancellationToken, query, param, filters) = p;
+                var (query, param, filters) = p;
                 var search = filters.FirstOrDefault(p => p.name.ToLower() == "q");
                 var rest = filters.Where(p => p.name.ToLower() != "q").ToArray();
-                return (cancellationToken, query, param, search, rest);
+                return (query, param, search, rest);
             })
             .Then("(filter) Make full text search expression", p =>
             {
-                var (cancellationToken, query, param, (name, json, _), rest) = p;
+                var (query, param, (name, json, _), rest) = p;
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 if (name != null && json != null)
                 {
@@ -184,13 +178,13 @@ internal class GetListQuery<TEntity>
                             return expression;
                         })
                         .Aggregate((accumulator, current) => Expression.OrElse(accumulator, current));
-                    return (cancellationToken, query, param, entityParameter, searchExpression, rest);
+                    return (query, param, entityParameter, searchExpression, rest);
                 }
-                return (cancellationToken, query, param, entityParameter, default(Expression), rest);
+                return (query, param, entityParameter, default(Expression), rest);
             })
             .Then("(filter) Categorize properties", p =>
             {
-                var (cancellationToken, query, param, entityParameter, searchExpression, rest) = p;
+                var (query, param, entityParameter, searchExpression, rest) = p;
                 var filters = rest
                     .Select(jsonProperty =>
                     {
@@ -233,11 +227,11 @@ internal class GetListQuery<TEntity>
                         return (filter.getExpression, filter.name, json, filter.typeConverter);
                     })
                     .ToArray();
-                return (cancellationToken, query, param, entityParameter, searchExpression, filters);
+                return (query, param, entityParameter, searchExpression, filters);
             })
             .Then("(filter) Convert property name to member access", p =>
             {
-                var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
+                var (query, param, entityParameter, searchExpression, filters) = p;
                 var convertedFilters = filters
                     .Select(filter =>
                     {
@@ -258,11 +252,11 @@ internal class GetListQuery<TEntity>
                         return (getExpression, member, json, typeConverter);
                     })
                     .ToArray();
-                return (cancellationToken, query, param, entityParameter, searchExpression, convertedFilters);
+                return (query, param, entityParameter, searchExpression, convertedFilters);
             })
             .Then("(filter) Convert json string to expression", p =>
             {
-                var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
+                var (query, param, entityParameter, searchExpression, filters) = p;
                 var convertedFilters = filters
                     .Select(filter =>
                     {
@@ -283,17 +277,17 @@ internal class GetListQuery<TEntity>
                         }
                     })
                     .ToArray();
-                return (cancellationToken, query, param, entityParameter, searchExpression, convertedFilters);
+                return (query, param, entityParameter, searchExpression, convertedFilters);
             })
             .Then("(filter) Apply", p =>
             {
-                var (cancellationToken, query, param, entityParameter, searchExpression, filters) = p;
+                var (query, param, entityParameter, searchExpression, filters) = p;
                 var mergedFilters = searchExpression == null
                     ? filters
                     : filters.Append(searchExpression);
                 if (!mergedFilters.Any())
                 {
-                    return (cancellationToken, query, param);
+                    return (query, param);
                 }
                 var expressionBody = mergedFilters
                     .Aggregate((accumulator, current) => Expression.AndAlso(accumulator, current));
@@ -302,22 +296,22 @@ internal class GetListQuery<TEntity>
                     entityParameter);
                 if (expression == null) throw new NullGuardException(nameof(expression));
 
-                return (cancellationToken, query.Where(expression), param);
+                return (query.Where(expression), param);
             })
             .Then("Count total", async p =>
             {
-                var (cancellationToken, query, param) = p;
-                var total = await query.LongCountAsync(cancellationToken);
-                return (cancellationToken, query, param, total);
+                var (query, param) = p;
+                var total = await query.CountAsync(cancellationToken);
+                return (query, param, total);
             })
             .Then("(sort) Parse json", p =>
             {
-                var (cancellationToken, query, param, total) = p;
-                var json = param["sort"];
-                if (json == null)
+                var (query, param, total) = p;
+                var json = param.sort;
+                if (string.IsNullOrEmpty(json))
                 {
                     (string field, string order)? sort = null;
-                    return (cancellationToken, query, param, total, sort);
+                    return (query, param, total, sort);
                 }
                 try
                 {
@@ -329,7 +323,7 @@ internal class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid json array: {json}" }
                         });
                     }
-                    return (cancellationToken, query, param, total, sort: (field: sort[0], order: sort[1]));
+                    return (query, param, total, sort: (field: sort[0], order: sort[1]));
                 }
                 catch (JsonException e)
                 {
@@ -341,7 +335,7 @@ internal class GetListQuery<TEntity>
             })
             .Then("(sort) Get member access", p =>
             {
-                var (cancellationToken, query, param, total, sort) = p;
+                var (query, param, total, sort) = p;
                 if (sort is (string field, string order))
                 {
                     var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
@@ -353,17 +347,17 @@ internal class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid sort field: ${field}" }
                         });
                     }
-                    return (cancellationToken, query, param, total, sort: (member, order, entityParameter));
+                    return (query, param, total, sort: (member, order, entityParameter));
                 }
                 else
                 {
                     (Expression member, string order, ParameterExpression entityParameter)? sortForMenber = null;
-                    return (cancellationToken, query, param, total, sort: sortForMenber);
+                    return (query, param, total, sort: sortForMenber);
                 }
             })
             .Then("(sort) Build sort for query", p =>
             {
-                var (cancellationToken, query, param, total, sort) = p;
+                var (query, param, total, sort) = p;
                 if (sort is (Expression member, string order, ParameterExpression entityParameter))
                 {
                     var expression = Expression.Lambda<Func<TEntity, object>>(
@@ -380,15 +374,15 @@ internal class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid sort order: ${order}" }
                         })
                     };
-                    return (cancellationToken, query: sortedQuery, param, total);
+                    return (query: sortedQuery, param, total);
                 }
-                return (cancellationToken, query, param, total);
+                return (query, param, total);
             })
             .Then("(range) Apply", p =>
             {
-                var (cancellationToken, query, param, total) = p;
-                var json = param["range"];
-                if (json == null) return (cancellationToken, query, total, (start: 0, end: int.MaxValue));
+                var (query, param, total) = p;
+                var json = param.range;
+                if (string.IsNullOrEmpty(json)) return (query, total, (start: 0, end: int.MaxValue));
                 try
                 {
                     var parsedRange = JsonSerializer.Deserialize<int[]>(json, jsonSerializerOptions);
@@ -401,7 +395,7 @@ internal class GetListQuery<TEntity>
                     }
                     var range = (start: parsedRange[0], end: parsedRange[1]);
                     var rangedQuery = query.Skip(range.start).Take(range.end - range.start + 1);
-                    return (cancellationToken, query: rangedQuery, total, range);
+                    return (query: rangedQuery, total, range);
                 }
                 catch (JsonException e)
                 {
@@ -413,53 +407,17 @@ internal class GetListQuery<TEntity>
             })
             .Then("Run query", async p =>
             {
-                var (cancellationToken, query, total, range) = p;
+                var (query, total, range) = p;
                 var data = await query.ToArrayAsync(cancellationToken);
                 return (range, total, data);
             })
-            .Then("Build Content-Range header", p =>
+            .Then("Calculate response range", p =>
             {
                 var (range, total, data) = p;
-                if (!data.Any())
-                {
-                    var totalOnlyContentRange = new ContentRangeHeaderValue(total)
-                    {
-                        Unit = "items"
-                    };
-                    return (data, contentRange: totalOnlyContentRange);
-                }
-                var (start, end) = range;
-                var actualEnd = Math.Min(end, start + data.Length - 1);
-                var contentRange = new ContentRangeHeaderValue(start, actualEnd, total)
-                {
-                    Unit = "items"
-                };
-                return (data, contentRange);
-            })
-            .Then("Determine the status", p =>
-            {
-                var (data, contentRange) = p;
-                if (data.Length < contentRange.Length)
-                {
-                    return (data, contentRange, status: HttpStatusCode.PartialContent);
-                }
-                return (data, contentRange, status: HttpStatusCode.OK);
-            })
-            .Then("Create response content", p =>
-            {
-                var (data, contentRange, status) = p;
-                var content = JsonContent.Create(data, null, jsonSerializerOptions);
-                content.Headers.ContentRange = contentRange;
-                return (status, content);
-            })
-            .Then("Create response message", p =>
-            {
-                var (status, content) = p;
-                var responseMessage = new HttpResponseMessage(status)
-                {
-                    Content = content,
-                };
-                return responseMessage;
+                (int first, int last)? responseRange = data.Any()
+                    ? (range.start, Math.Min(range.end, range.start + data.Length - 1))
+                    : null;
+                return (data, total, range: responseRange);
             })
             .Build();
 

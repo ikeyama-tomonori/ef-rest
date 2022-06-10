@@ -65,30 +65,6 @@ public class CreateTest
     }
 
     [TestMethod]
-    public async Task Invalid_data()
-    {
-        var db = new BookDbContext();
-        var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
-        server.Init(db);
-        var handler = server.GetHandler();
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
-
-        var newBook = new
-        {
-            xxx = "New Book"
-        };
-        var response = await client.PostAsJsonAsync("Books", newBook);
-        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [TestMethod]
     public async Task Ignore_id_field()
     {
         var db = new BookDbContext();

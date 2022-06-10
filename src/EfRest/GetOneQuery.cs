@@ -1,38 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
+using EfRest.Extensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection param, CancellationToken cancellationToken), HttpResponseMessage>
+public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntity>
         where TEntity : class
 {
-    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions) : base(option)
+    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
     {
         var handler = new Handler()
             .Then("Create base query", p =>
             {
-                var (id, param, cancellationToken) = p;
+                var (id, embed) = p;
                 var query = db
                     .Set<TEntity>()
                     .AsNoTracking();
-                return (cancellationToken, query, id, param);
+                return (query, id, embed);
             })
             .Then("(embed) Parse json object", p =>
             {
-                var (cancellationToken, query, id, param) = p;
-                var json = param["embed"];
-                if (json == null) return (cancellationToken, query, id, embed: Array.Empty<string>());
+                var (query, id, embedParam) = p;
+                var json = embedParam;
+                if (json == null) return (query, id, embed: Array.Empty<string>());
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -41,7 +38,7 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         ["embed"] = new[] { $"Invalid json array: {json}" }
                     });
 
-                    return (cancellationToken, query, id, embed);
+                    return (query, id, embed);
                 }
                 catch (JsonException e)
                 {
@@ -53,7 +50,7 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
             })
             .Then("(embed) Convert json property names to EF's", p =>
             {
-                var (cancellationToken, query, id, embed) = p;
+                var (query, id, embed) = p;
                 var convertedNames = embed
                     .Select(embedItem =>
                     {
@@ -93,18 +90,18 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         return includeName;
                     })
                     .ToArray();
-                return (cancellationToken, query, id, embed: convertedNames);
+                return (query, id, embed: convertedNames);
             })
             .Then("(embed) Apply embed", p =>
             {
-                var (cancellationToken, query, id, embed) = p;
+                var (query, id, embed) = p;
                 var embedQuery = embed
                     .Aggregate(query, (acc, cur) => acc.Include(cur));
-                return (cancellationToken, query: embedQuery, id);
+                return (query: embedQuery, id);
             })
             .Then("Get key's PropertyInfo", p =>
             {
-                var (cancellationToken, query, id) = p;
+                var (query, id) = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -119,57 +116,31 @@ internal class GetOneQuery<TEntity> : Query<(string id, NameValueCollection para
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (cancellationToken, query, id, propertyInfo);
-            })
-            .Then("Convert id to key's value", p =>
-            {
-                var (cancellationToken, query, id, propertyInfo) = p;
-                try
-                {
-                    var value = JsonSerializer.Deserialize(id, propertyInfo.PropertyType, jsonSerializerOptions);
-                    return (cancellationToken, query, value, propertyInfo);
-                }
-                catch (JsonException e)
-                {
-                    throw new NotFoundException(new()
-                    {
-                        ["id"] = new[] { e.Message }
-                    });
-                }
+                return (query, id, propertyInfo);
             })
             .Then("Create where expression", p =>
             {
-                var (cancellationToken, query, value, propertyInfo) = p;
+                var (query, id, propertyInfo) = p;
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 var memberAccess = Expression.MakeMemberAccess(entityParameter, propertyInfo);
-                var valueExpression = Expression.Convert(Expression.Constant(value), propertyInfo.PropertyType);
+                var valueExpression = Expression.Convert(Expression.Constant(id), propertyInfo.PropertyType);
                 var body = Expression.Equal(memberAccess, valueExpression);
                 var predicate = Expression.Lambda<Func<TEntity, bool>>(body, entityParameter);
 
-                return (cancellationToken, value, query: query.Where(predicate));
+                return (id, query: query.Where(predicate));
             })
             .Then("Run query", async p =>
             {
-                var (cancellationToken, value, query) = p;
+                var (id, query) = p;
                 var data = await query.SingleOrDefaultAsync(cancellationToken);
                 if (data == null)
                 {
                     throw new NotFoundException(new()
                     {
-                        ["id"] = new[] { $"Id not found: {value}" }
+                        ["id"] = new[] { $"Id not found: {id}" }
                     });
                 }
                 return data;
-            })
-            .Then("Create response", p =>
-            {
-                var data = p;
-                var content = JsonContent.Create(data, null, jsonSerializerOptions);
-                var response = new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = content
-                };
-                return response;
             })
             .Build();
 

@@ -401,7 +401,7 @@ public class EfRestSwagger
                 ? Array.Empty<OpenApiServer>()
                 : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
             Paths = paths,
-            Components = new OpenApiComponents
+            Components = new()
             {
                 Schemas = schemaRepository.Schemas
             },
