@@ -4,9 +4,9 @@ using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
+public class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
         where TEntity : class
 {
     public UpdateCommand(CloudCqsOptions option, DbContext db, CancellationToken cancellationToken)

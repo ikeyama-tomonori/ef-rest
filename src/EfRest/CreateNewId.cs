@@ -5,9 +5,9 @@ using CloudCqs;
 using CloudCqs.NewId;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
+public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
     where TEntity : class
     where TKey : notnull
 {

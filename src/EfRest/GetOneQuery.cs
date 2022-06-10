@@ -6,11 +6,12 @@ using System.Text.Json;
 using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
+using EfRest.Extensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntity>
+public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntity>
         where TEntity : class
 {
     public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)

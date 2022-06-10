@@ -175,38 +175,6 @@ public class PatchTest
     }
 
     [TestMethod]
-    public async Task Invalid_body_with_annotation()
-    {
-        var db = new BookDbContext();
-        var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
-        server.Init(db);
-        var handler = server.GetHandler();
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
-
-        var book = new Book
-        {
-            Title = "New Book"
-        };
-        await db.Books.AddAsync(book);
-        await db.SaveChangesAsync();
-
-        var modifiedBook = new
-        {
-            Title = ""
-        };
-        var content = JsonContent.Create(modifiedBook);
-        var response = await client.PatchAsync($"Books/{book.Id}", content);
-        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [TestMethod]
     public async Task Invalid_field_format()
     {
         var db = new BookDbContext();

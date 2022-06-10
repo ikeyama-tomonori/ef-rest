@@ -9,11 +9,12 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
+using EfRest.Extensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class GetListQuery<TEntity>
+public class GetListQuery<TEntity>
         : Query<(string? embed, string? filter, string? sort, string? range), (TEntity[] data, int total, (int first, int last)? range)>
         where TEntity : class
 {

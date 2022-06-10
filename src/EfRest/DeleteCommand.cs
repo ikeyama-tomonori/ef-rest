@@ -3,9 +3,9 @@ using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest.Internal;
+namespace EfRest;
 
-internal class DeleteCommand<TEntity, TKey> : Command<TKey>
+public class DeleteCommand<TEntity, TKey> : Command<TKey>
     where TEntity : class
     where TKey : notnull
 {
