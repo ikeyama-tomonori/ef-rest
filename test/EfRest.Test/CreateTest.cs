@@ -18,12 +18,11 @@ public class CreateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -45,16 +44,45 @@ public class CreateTest
     }
 
     [TestMethod]
+    public async Task Create_on_root_path()
+    {
+        var db = new BookDbContext();
+        var baseAddress = new Uri("http://localhost/");
+        var server = new EfRestServer(db)
+        {
+            CloudCqsOptions = Options.Instance,
+        };
+        var handler = new EfRestHandler(server, baseAddress);
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = baseAddress
+        };
+
+        var newBook = new Book
+        {
+            Title = "New Book"
+        };
+        var response = await client.PostAsJsonAsync("Books", newBook);
+        var content = await response.Content.ReadFromJsonAsync<Book>();
+
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.AreEqual("New Book", content?.Title);
+
+        var createdBook = await db.Books.SingleAsync(b => b.Title == "New Book");
+        Assert.AreEqual($"/Books/{createdBook.Id}", response.Headers.GetValues("Location").First());
+        Assert.AreEqual("New Book", createdBook.Title);
+    }
+
+    [TestMethod]
     public async Task Invalid_json()
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -69,12 +97,11 @@ public class CreateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress

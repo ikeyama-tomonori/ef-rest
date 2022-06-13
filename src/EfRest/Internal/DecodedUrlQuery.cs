@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Linq;
 using System.Text.Json;
 using System.Web;
@@ -11,19 +10,17 @@ using Microsoft.EntityFrameworkCore;
 namespace EfRest.Internal;
 
 internal class DecodedUrlQuery : Query<
-        Uri,
+        string,
         (string resource, string? id, NameValueCollection param)>
 {
     public DecodedUrlQuery(
         CloudCqsOptions option,
         DbContext db,
-        JsonSerializerOptions jsonSerializerOptions,
-        Uri baseAddress) : base(option) => SetHandler(new Handler()
+        JsonSerializerOptions jsonSerializerOptions)
+        : base(option) => SetHandler(new Handler()
             .Then("Decode path and query string", _ =>
             {
-                var uri = UseRequest();
-                var relative = baseAddress.MakeRelativeUri(uri);
-                var pathAndQuery = relative.OriginalString;
+                var pathAndQuery = UseRequest();
                 var pathQueryArray = pathAndQuery.Split('?');
                 var path = pathQueryArray[0];
                 var query = pathQueryArray.Length == 1 ? "" : pathQueryArray[1];
