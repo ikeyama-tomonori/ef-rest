@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Linq;
 using System.Text.Json;
 using System.Web;
@@ -11,21 +10,17 @@ using Microsoft.EntityFrameworkCore;
 namespace EfRest.Internal;
 
 internal class DecodedUrlQuery : Query<
-        Uri,
+        string,
         (string resource, string? id, NameValueCollection param)>
 {
     public DecodedUrlQuery(
         CloudCqsOptions option,
         DbContext db,
-        JsonSerializerOptions jsonSerializerOptions,
-        Uri baseAddress) : base(option)
-    {
-        var handler = new Handler()
-            .Then("Decode path and query string", p =>
+        JsonSerializerOptions jsonSerializerOptions)
+        : base(option) => SetHandler(new Handler()
+            .Then("Decode path and query string", _ =>
             {
-                var uri = p;
-                var relative = baseAddress.MakeRelativeUri(uri);
-                var pathAndQuery = relative.OriginalString;
+                var pathAndQuery = UseRequest();
                 var pathQueryArray = pathAndQuery.Split('?');
                 var path = pathQueryArray[0];
                 var query = pathQueryArray.Length == 1 ? "" : pathQueryArray[1];
@@ -47,31 +42,31 @@ internal class DecodedUrlQuery : Query<
                 return (nominee, param);
             })
             .Then("Handle resource name include slash.", p =>
-             {
-                 var (nominee, param) = p;
-                 var resourceNameIncludeSlash =
-                    nominee.id == null
-                    ? null
-                    : $"{nominee.resource}/{nominee.id}";
-                 var resourceNameIncludeSlashPropInfo =
-                    resourceNameIncludeSlash == null
-                    ? null
-                    : db
-                        .GetType()
-                        .GetPropertyInfoByJsonName(
-                            resourceNameIncludeSlash,
-                            jsonSerializerOptions);
-                 var entityTypeIncludeSlash = resourceNameIncludeSlashPropInfo?
-                        .PropertyType
-                        .GetGenericArguments()
-                        .First();
-                 var includeSlash =
-                    (resourceNameIncludeSlash == null || entityTypeIncludeSlash == null)
-                    ? null
-                    : resourceNameIncludeSlash;
+            {
+                var (nominee, param) = p;
+                var resourceNameIncludeSlash =
+                   nominee.id == null
+                   ? null
+                   : $"{nominee.resource}/{nominee.id}";
+                var resourceNameIncludeSlashPropInfo =
+                   resourceNameIncludeSlash == null
+                   ? null
+                   : db
+                       .GetType()
+                       .GetPropertyInfoByJsonName(
+                           resourceNameIncludeSlash,
+                           jsonSerializerOptions);
+                var entityTypeIncludeSlash = resourceNameIncludeSlashPropInfo?
+                       .PropertyType
+                       .GetGenericArguments()
+                       .First();
+                var includeSlash =
+                   (resourceNameIncludeSlash == null || entityTypeIncludeSlash == null)
+                   ? null
+                   : resourceNameIncludeSlash;
 
-                 return (includeSlash, nominee, param);
-             })
+                return (includeSlash, nominee, param);
+            })
             .Then("Handle resouce name without slash.", p =>
             {
                 var (includeSlash, nominee, param) = p;
@@ -94,9 +89,5 @@ internal class DecodedUrlQuery : Query<
                 }
 
                 return (name: nominee.resource, nominee.id, param);
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }

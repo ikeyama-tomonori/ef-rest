@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Threading;
 using CloudCqs;
 using CloudCqs.NewId;
 using Microsoft.EntityFrameworkCore;
@@ -11,12 +10,10 @@ public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
     where TEntity : class
     where TKey : notnull
 {
-    public CreateNewId(CloudCqsOptions option, DbContext db, CancellationToken cancellationToken) : base(option)
-    {
-        var handler = new Handler()
-            .Then("Get key's PropertyInfo", p =>
+    public CreateNewId(CloudCqsOptions option, DbContext db)
+        : base(option) => SetHandler(new Handler()
+            .Then("Get key's PropertyInfo", _ =>
             {
-                var entity = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -31,11 +28,12 @@ public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (entity, propertyInfo);
+                return propertyInfo;
             })
             .Then("Reset key as defualt", p =>
             {
-                var (entity, propertyInfo) = p;
+                var propertyInfo = p;
+                var entity = UseRequest();
                 var value =
                     propertyInfo.PropertyType.IsValueType
                     ? Activator.CreateInstance(propertyInfo.PropertyType)
@@ -46,12 +44,14 @@ public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
             .Then("Add to DbSet", async p =>
             {
                 var (entity, propertyInfo) = p;
+                var cancellationToken = UseCancellationToken();
                 await db.Set<TEntity>().AddAsync(entity, cancellationToken);
                 return (entity, propertyInfo);
             })
             .Then("Save to database", async p =>
             {
                 var (entity, propertyInfo) = p;
+                var cancellationToken = UseCancellationToken();
                 await db.SaveChangesAsync(cancellationToken);
                 return (entity, propertyInfo);
             })
@@ -59,12 +59,8 @@ public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
             {
                 var (entity, propertyInfo) = p;
                 var value = propertyInfo.GetValue(entity);
-                if (value == null) throw new NullGuardException(nameof(value));
-                return (TKey)value;
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+                if (value is TKey key) return key;
+                throw new TypeGuardException(typeof(TKey), value);
+            }));
 }
 

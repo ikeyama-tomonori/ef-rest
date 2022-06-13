@@ -11,29 +11,20 @@ internal class JsonDeserializeQuery<T> : Query<string, T>
     public JsonDeserializeQuery(CloudCqsOptions option,
         JsonSerializerOptions jsonSerializerOptions,
         Action<JsonException, string> whenError)
-        : base(option)
-    {
-        var handler = new Handler()
-            .Then("Deserialize json string", p =>
+        : base(option) => SetHandler(new Handler()
+            .Then("Deserialize json string", _ =>
             {
-                var json = p;
+                var json = UseRequest();
                 try
                 {
-                    var data = JsonSerializer.Deserialize<T>(json, jsonSerializerOptions);
-                    if (data == null)
-                    {
-                        throw new NullGuardException(nameof(data));
-                    }
-                    return data;
+                    var obj = JsonSerializer.Deserialize<T>(json, jsonSerializerOptions);
+                    if (obj is T data) return data;
+                    throw new TypeGuardException(typeof(T), obj);
                 }
                 catch (JsonException e)
                 {
                     whenError(e, json);
                     throw;
                 }
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }

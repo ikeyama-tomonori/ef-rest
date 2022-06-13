@@ -11,12 +11,10 @@ internal class CreateFacade<TEntity, TKey> : Facade<string, string>
         (IQuery<string, TEntity> jsonDeserializeQuery,
         INewId<TEntity, TKey> createNewId,
         IQuery<TKey, string> jsonSerializeQuery) repository)
-        : base(option)
-    {
-        var handler = new Handler()
+        : base(option) => SetHandler(new Handler()
             .Invoke("Invoke json deserializer to convert data",
                 repository.jsonDeserializeQuery,
-                p => p,
+                _ => UseRequest(),
                 p => p.response)
             .Invoke("Invoke create data",
                 repository.createNewId,
@@ -25,10 +23,6 @@ internal class CreateFacade<TEntity, TKey> : Facade<string, string>
             .Invoke("Invoke json serializer to convert id value",
                 repository.jsonSerializeQuery,
                 p => p,
-                p => p.response)
-            .Build();
-
-        SetHandler(handler);
-    }
+                p => p.response));
 }
 

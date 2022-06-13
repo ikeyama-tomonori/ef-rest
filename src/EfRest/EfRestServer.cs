@@ -1,12 +1,8 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,165 +15,140 @@ namespace EfRest;
 
 public class EfRestServer
 {
-    public Uri BaseAddress { get; }
-
     public JsonSerializerOptions JsonSerializerOptions { get; init; } = new(JsonSerializerDefaults.Web);
     public CloudCqsOptions CloudCqsOptions { get; init; } = new();
 
-    public DbContext? DbContext { get; set; }
+    public DbContext DbContext { get; set; }
 
-    public EfRestServer(Uri baseAddress)
-    {
-        BaseAddress = baseAddress;
-    }
-
-    public void Init(DbContext dbContext)
+    public EfRestServer(DbContext dbContext)
     {
         DbContext = dbContext;
     }
 
-    public async Task<HttpResponseMessage> GetAll(string name, NameValueCollection param, CancellationToken cancellationToken = default)
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)> GetAll(string name, NameValueCollection param, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
         var request = (embed: param["embed"], filter: param["filter"], sort: param["sort"], range: param["range"]);
-        var (json, total, range) = await repository.GetListFacade(cancellationToken).Invoke(request);
-        var contentRange = range is (var first, var last)
-            ? new ContentRangeHeaderValue(first, last, total)
-            : new ContentRangeHeaderValue(total);
-        contentRange.Unit = "items";
+        var (json, total, range) = await repository.GetListFacade().Invoke(request, cancellationToken);
 
-        var status = contentRange.Length == contentRange.To - contentRange.From + 1
-            ? HttpStatusCode.OK
-            : HttpStatusCode.PartialContent;
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        content.Headers.ContentRange = contentRange;
-
-        var responseMessage = new HttpResponseMessage(status)
+        if (range is (var first, var last))
         {
-            Content = content,
+            var headers = new Dictionary<string, string>
+            {
+                ["Content-Range"] = $"items {first}-{last}/{total}"
+            };
+            var statusCode = total == last - first + 1
+                ? (int)HttpStatusCode.OK
+                : (int)HttpStatusCode.PartialContent;
+
+            return (statusCode, headers, body: json);
+        }
+        else
+        {
+            var headers = new Dictionary<string, string>
+            {
+                ["Content-Range"] = $"items */{total}"
+            };
+            var statusCode = (int)HttpStatusCode.PartialContent;
+
+            return (statusCode, headers, body: json);
+        }
+    }
+
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)>
+        GetOne(string name, string id, NameValueCollection param, CancellationToken cancellationToken = default)
+    {
+        var repository = GetRepositoryFactory(name);
+        var json = await repository.GetOneFacade().Invoke((id, param["embed"]), cancellationToken);
+        var statusCode = (int)HttpStatusCode.OK;
+
+        return (statusCode, headers: new(), body: json);
+    }
+
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)>
+        AddOne(string name, string item, CancellationToken cancellationToken = default)
+    {
+        var repository = GetRepositoryFactory(name);
+        var id = await repository.CreateFacade().Invoke(item, cancellationToken);
+        var response = await GetOne(name, id, new(), cancellationToken);
+        var headers = new Dictionary<string, string>
+        {
+            ["Location"] = $"/{name}/{id}"
         };
+        var statusCode = (int)HttpStatusCode.Created;
 
-        return responseMessage;
+        return (statusCode, headers, response.body);
     }
 
-    public async Task<HttpResponseMessage> GetOne(string name, string id, NameValueCollection param, CancellationToken cancellationToken = default)
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)>
+        UpdateOne(string name, string id, string item, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var json = await repository.GetOneFacade(cancellationToken).Invoke((id, param["embed"]));
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        await repository.UpdateFacade().Invoke((id, item), cancellationToken);
+        var response = await GetOne(name, id, new(), cancellationToken);
+        return response;
+    }
+
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)>
+        PatchOne(string name, string id, string item, CancellationToken cancellationToken = default)
+    {
+        var repository = GetRepositoryFactory(name);
+        await repository.PatchFacade().Invoke((id, item), cancellationToken);
+        var response = await GetOne(name, id, new(), cancellationToken);
+        return response;
+    }
+
+    public async Task<(int statusCode, Dictionary<string, string> headers, string body)>
+        RemoveOne(string name, string id, CancellationToken cancellationToken = default)
+    {
+        var repository = GetRepositoryFactory(name);
+        var response = await GetOne(name, id, new(), cancellationToken);
+        await repository.DeleteFacade().Invoke(id, cancellationToken);
+        return response;
+    }
+
+    public async Task<(int statusCode, Dictionary<string, string> headers, string? body)>
+        Request(string method, string pathAndQuery, string? body, CancellationToken cancellationToken = default)
+    {
+        if (DbContext == null)
         {
-            Content = content
-        };
-        return response;
-    }
-
-    public async Task<HttpResponseMessage> AddOne(string name, string item, CancellationToken cancellationToken = default)
-    {
-        var repository = GetRepositoryFactory(name);
-        var id = await repository.CreateFacade(cancellationToken).Invoke(item);
-        var response = await GetOne(name, id, new(), cancellationToken);
-        response.StatusCode = HttpStatusCode.Created;
-        response.Headers.Location = new Uri($"{BaseAddress.AbsolutePath}{name}/{id}", UriKind.Relative);
-        return response;
-    }
-
-    public async Task<HttpResponseMessage> UpdateOne(string name, string id, string item, CancellationToken cancellationToken = default)
-    {
-        var repository = GetRepositoryFactory(name);
-        await repository.UpdateFacade(cancellationToken).Invoke((id, item));
-        var response = await GetOne(name, id, new(), cancellationToken);
-        return response;
-    }
-
-    public async Task<HttpResponseMessage> PatchOne(string name, string id, string item, CancellationToken cancellationToken = default)
-    {
-        var repository = GetRepositoryFactory(name);
-        await repository.PatchFacade(cancellationToken).Invoke((id, item));
-        var response = await GetOne(name, id, new(), cancellationToken);
-        return response;
-    }
-
-    public async Task<HttpResponseMessage> RemoveOne(string name, string id, CancellationToken cancellationToken = default)
-    {
-        var repository = GetRepositoryFactory(name);
-        var response = await GetOne(name, id, new(), cancellationToken);
-        await repository.DeleteFacade(cancellationToken).Invoke(id);
-        return response;
-    }
-
-    public class Handler : DelegatingHandler
-    {
-        private readonly EfRestServer _server;
-
-        internal Handler(EfRestServer server) : base(new HttpClientHandler())
-        {
-            _server = server;
+            return (statusCode: (int)HttpStatusCode.BadGateway, headers: new(), body: null);
         }
 
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
+        try
         {
-            if (request.RequestUri == null || !_server.BaseAddress.IsBaseOf(request.RequestUri))
-            {
-                return await base.SendAsync(request, cancellationToken);
-            }
-
-            if (_server.DbContext == null)
-            {
-                return new HttpResponseMessage(HttpStatusCode.BadRequest);
-            }
-
             var decodedUrlQuery = new DecodedUrlQuery(
-                _server.CloudCqsOptions,
-                _server.DbContext,
-                _server.JsonSerializerOptions,
-                _server.BaseAddress);
+                CloudCqsOptions,
+                DbContext,
+                JsonSerializerOptions);
+            var (resource, id, param) = await decodedUrlQuery.Invoke(pathAndQuery, cancellationToken);
 
-            try
+            var response = (method, id, body) switch
             {
-                var (resource, id, param) = await decodedUrlQuery.Invoke(request.RequestUri);
-                var item =
-                    request.Content == null
-                    ? null
-                    : await request.Content.ReadAsStringAsync(cancellationToken);
+                (method: "POST", id: null, body: string)
+                    => await AddOne(resource, body, cancellationToken),
+                (method: "GET", id: string, body: _)
+                    => await GetOne(resource, id, param, cancellationToken),
+                (method: "GET", id: null, body: _)
+                    => await GetAll(resource, param, cancellationToken),
+                (method: "PUT", id: string, body: string)
+                    => await UpdateOne(resource, id, body, cancellationToken),
+                (method: "PATCH", id: string, body: string)
+                    => await PatchOne(resource, id, body, cancellationToken),
+                (method: "DELETE", id: string, body: _)
+                    => await RemoveOne(resource, id, cancellationToken),
+                _ => (statusCode: (int)HttpStatusCode.NotFound, headers: new(), body: null)
+            };
 
-                var response = (method: request.Method.Method, id, item) switch
-                {
-                    (method: "POST", id: null, item: string)
-                        => await _server.AddOne(resource, item, cancellationToken),
-                    (method: "GET", id: string, item: _)
-                        => await _server.GetOne(resource, id, param, cancellationToken),
-                    (method: "GET", id: null, item: _)
-                        => await _server.GetAll(resource, param, cancellationToken),
-                    (method: "PUT", id: string, item: string)
-                        => await _server.UpdateOne(resource, id, item, cancellationToken),
-                    (method: "PATCH", id: string, item: string)
-                        => await _server.PatchOne(resource, id, item, cancellationToken),
-                    (method: "DELETE", id: string, item: _)
-                        => await _server.RemoveOne(resource, id, cancellationToken),
-                    _ => new HttpResponseMessage(HttpStatusCode.NotFound)
-                };
-
-                return response;
-            }
-            catch (StatusCodeException exception)
-            {
-                var content = JsonContent.Create(exception.Object, null, _server.JsonSerializerOptions);
-                var response = new HttpResponseMessage(exception.HttpStatusCode)
-                {
-                    Content = content
-                };
-                return response;
-            }
-
+            return response;
         }
-    }
+        catch (StatusCodeException exception)
+        {
+            var responseBody = JsonSerializer.Serialize(exception.Object);
+            var statusCode = exception.HttpStatusCode;
 
-    public Handler GetHandler()
-    {
-        return new(this);
+            return ((int)statusCode, new(), responseBody);
+        }
     }
 
     private RepositoryFactory GetRepositoryFactory(string name)
@@ -262,33 +233,29 @@ public class EfRestServer
     {
         if (DbContext == null) throw new NullGuardException(nameof(DbContext));
         return new(
-            CreateFacade: cancellationToken
-            => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
+            CreateFacade: () => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
                 repository: (new JsonDeserializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new BadRequestException(new()
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken),
+                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext),
                             new JsonSerializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetListFacade: cancellationToken
-            => new GetListFacade<TEntity>(option: CloudCqsOptions,
-                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+            GetListFacade: () => new GetListFacade<TEntity>(option: CloudCqsOptions,
+                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                              new JsonSerializeQuery<TEntity[]>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetOneFacade: cancellationToken
-            => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
+            GetOneFacade: () => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
                 repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
                                     ["id"] = new[] { e.Message, json }
                                 })),
-                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                             new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
 
-           UpdateFacade: cancellationToken
-           => new UpdateFacade<TEntity, TKey>(option: CloudCqsOptions,
+           UpdateFacade: () => new UpdateFacade<TEntity, TKey>(option: CloudCqsOptions,
                repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
@@ -299,10 +266,9 @@ public class EfRestServer
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                           updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken))),
+                           updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext))),
 
-           PatchFacade: cancellationToken
-           => new PatchFacade<TKey>(option: CloudCqsOptions,
+           PatchFacade: () => new PatchFacade<TKey>(option: CloudCqsOptions,
             repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
@@ -313,15 +279,14 @@ public class EfRestServer
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                          patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken))),
+                          patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions))),
 
-           DeleteFacade: cancellationToken
-            => new DeleteFacade<TKey>(option: CloudCqsOptions,
+           DeleteFacade: () => new DeleteFacade<TKey>(option: CloudCqsOptions,
                  repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                  whenError: (e, json) => throw new NotFoundException(new()
                                  {
                                      ["id"] = new[] { e.Message, json }
                                  })),
-                             new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken))));
+                             new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext))));
     }
 }

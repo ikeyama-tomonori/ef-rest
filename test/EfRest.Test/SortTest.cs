@@ -67,12 +67,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -95,12 +94,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -127,12 +125,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -151,12 +148,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -175,12 +171,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
@@ -199,12 +194,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(baseAddress)
+        var server = new EfRestServer(db)
         {
-            CloudCqsOptions = Options.Instance
+            CloudCqsOptions = Options.Instance,
         };
-        server.Init(db);
-        var handler = server.GetHandler();
+        var handler = new EfRestHandler(server, baseAddress);
         using var client = new HttpClient(handler)
         {
             BaseAddress = baseAddress
