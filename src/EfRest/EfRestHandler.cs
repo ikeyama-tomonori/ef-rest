@@ -49,7 +49,7 @@ public class EfRestHandler : DelegatingHandler
             {
                 content?.Headers.Add(key, value);
             }
-            if (key == "Location")
+            else if (key == "Location")
             {
                 var basePath = _baseAddress.AbsolutePath;
                 if (basePath.Length == 0)
