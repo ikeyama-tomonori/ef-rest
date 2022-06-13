@@ -11,23 +11,18 @@ internal class UpdateFacade<TEntity, TKey> : CommandFacade<(string id, string co
         (IQuery<string, TKey> keyDeserializeQuery,
         IQuery<string, TEntity> entityDeserializeQuery,
         ICommand<(TKey id, TEntity entity)> updateCommand) repository)
-        : base(option)
-    {
-        var handler = new Handler()
+        : base(option) => SetHandler(new Handler()
             .Invoke("Invoke json deserializer to convert id value",
                 repository.keyDeserializeQuery,
-                p => p.id,
-                p => (id: p.response, p.param.content))
+                _ => UseRequest().id,
+                p => (id: p.response, UseRequest().content))
             .Invoke("Invoke json deserializer to convert entity",
                 repository.entityDeserializeQuery,
                 p => p.content,
                 p => (p.param.id, entity: p.response))
             .Invoke("Invoke update command",
                 repository.updateCommand,
-                p => p)
-            .Build();
+                p => p));
 
-        SetHandler(handler);
-    }
 }
 

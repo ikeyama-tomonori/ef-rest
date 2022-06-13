@@ -6,7 +6,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
 using EfRest.Extensions;
@@ -18,22 +17,20 @@ public class GetListQuery<TEntity>
         : Query<(string? embed, string? filter, string? sort, string? range), (TEntity[] data, int total, (int first, int last)? range)>
         where TEntity : class
 {
-    public GetListQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken)
-        : base(option)
-    {
-        var handler = new Handler()
-            .Then("Create base query", p =>
+    public GetListQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+        : base(option) => SetHandler(new Handler()
+            .Then("Create base query", _ =>
             {
                 var query = db
                     .Set<TEntity>()
                     .AsNoTracking();
-                return (query, param: p);
+                return query;
             })
             .Then("(embed) Parse json object", p =>
             {
-                var (query, param) = p;
-                var json = param.embed;
-                if (string.IsNullOrEmpty(json)) return (query, param, embed: Array.Empty<string>());
+                var query = p;
+                var json = UseRequest().embed;
+                if (string.IsNullOrEmpty(json)) return (query, embed: Array.Empty<string>());
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -42,7 +39,7 @@ public class GetListQuery<TEntity>
                         ["embed"] = new[] { $"Invalid json array: {json}" }
                     });
 
-                    return (query, param, embed);
+                    return (query, embed);
                 }
                 catch (JsonException e)
                 {
@@ -54,7 +51,7 @@ public class GetListQuery<TEntity>
             })
             .Then("(embed) Convert json property names to EF's", p =>
             {
-                var (query, param, embed) = p;
+                var (query, embed) = p;
                 var convertedNames = embed
                     .Select(embedItem =>
                     {
@@ -94,25 +91,23 @@ public class GetListQuery<TEntity>
                         return includeName;
                     })
                     .ToArray();
-                return (query, param, embed: convertedNames);
+                return (query, embed: convertedNames);
             })
             .Then("(embed) Apply embed", p =>
             {
-                var (query, param, embed) = p;
+                var (query, embed) = p;
                 var embedQuery = embed
                     .Aggregate(query, (acc, cur) => acc.Include(cur));
-                return (query: embedQuery, param);
+                return embedQuery;
             })
             .Then("(filter) Parse  json", p =>
             {
-                var (query, param) = p;
-                var json = param.filter;
+                var query = p;
+                var json = UseRequest().filter;
                 if (string.IsNullOrEmpty(json))
                 {
-                    return (
-                        query,
-                        param,
-                        Array.Empty<(string name, string json, JsonValueKind kind)>());
+                    return (query,
+                        filters: Array.Empty<(string name, string json, JsonValueKind kind)>());
                 }
                 try
                 {
@@ -133,7 +128,7 @@ public class GetListQuery<TEntity>
                             kind: jsonProperty.Value.ValueKind))
                         .ToArray();
 
-                    return (query, param, filters);
+                    return (query, filters);
                 }
                 catch (JsonException e)
                 {
@@ -145,14 +140,14 @@ public class GetListQuery<TEntity>
             })
             .Then("(filter) Divide by search or not", p =>
             {
-                var (query, param, filters) = p;
+                var (query, filters) = p;
                 var search = filters.FirstOrDefault(p => p.name.ToLower() == "q");
                 var rest = filters.Where(p => p.name.ToLower() != "q").ToArray();
-                return (query, param, search, rest);
+                return (query, search, rest);
             })
             .Then("(filter) Make full text search expression", p =>
             {
-                var (query, param, (name, json, _), rest) = p;
+                var (query, (name, json, _), rest) = p;
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 if (name != null && json != null)
                 {
@@ -178,13 +173,13 @@ public class GetListQuery<TEntity>
                             return expression;
                         })
                         .Aggregate((accumulator, current) => Expression.OrElse(accumulator, current));
-                    return (query, param, entityParameter, searchExpression, rest);
+                    return (query, entityParameter, searchExpression, rest);
                 }
-                return (query, param, entityParameter, default(Expression), rest);
+                return (query, entityParameter, default(Expression), rest);
             })
             .Then("(filter) Categorize properties", p =>
             {
-                var (query, param, entityParameter, searchExpression, rest) = p;
+                var (query, entityParameter, searchExpression, rest) = p;
                 var filters = rest
                     .Select(jsonProperty =>
                     {
@@ -227,11 +222,11 @@ public class GetListQuery<TEntity>
                         return (filter.getExpression, filter.name, json, filter.typeConverter);
                     })
                     .ToArray();
-                return (query, param, entityParameter, searchExpression, filters);
+                return (query, entityParameter, searchExpression, filters);
             })
             .Then("(filter) Convert property name to member access", p =>
             {
-                var (query, param, entityParameter, searchExpression, filters) = p;
+                var (query, entityParameter, searchExpression, filters) = p;
                 var convertedFilters = filters
                     .Select(filter =>
                     {
@@ -252,11 +247,11 @@ public class GetListQuery<TEntity>
                         return (getExpression, member, json, typeConverter);
                     })
                     .ToArray();
-                return (query, param, entityParameter, searchExpression, convertedFilters);
+                return (query, entityParameter, searchExpression, convertedFilters);
             })
             .Then("(filter) Convert json string to expression", p =>
             {
-                var (query, param, entityParameter, searchExpression, filters) = p;
+                var (query, entityParameter, searchExpression, filters) = p;
                 var convertedFilters = filters
                     .Select(filter =>
                     {
@@ -277,17 +272,17 @@ public class GetListQuery<TEntity>
                         }
                     })
                     .ToArray();
-                return (query, param, entityParameter, searchExpression, convertedFilters);
+                return (query, entityParameter, searchExpression, convertedFilters);
             })
             .Then("(filter) Apply", p =>
             {
-                var (query, param, entityParameter, searchExpression, filters) = p;
+                var (query, entityParameter, searchExpression, filters) = p;
                 var mergedFilters = searchExpression == null
                     ? filters
                     : filters.Append(searchExpression);
                 if (!mergedFilters.Any())
                 {
-                    return (query, param);
+                    return query;
                 }
                 var expressionBody = mergedFilters
                     .Aggregate((accumulator, current) => Expression.AndAlso(accumulator, current));
@@ -296,22 +291,23 @@ public class GetListQuery<TEntity>
                     entityParameter);
                 if (expression == null) throw new NullGuardException(nameof(expression));
 
-                return (query.Where(expression), param);
+                return query.Where(expression);
             })
             .Then("Count total", async p =>
             {
-                var (query, param) = p;
+                var query = p;
+                var cancellationToken = UseCancellationToken();
                 var total = await query.CountAsync(cancellationToken);
-                return (query, param, total);
+                return (query, total);
             })
             .Then("(sort) Parse json", p =>
             {
-                var (query, param, total) = p;
-                var json = param.sort;
+                var (query, total) = p;
+                var json = UseRequest().sort;
                 if (string.IsNullOrEmpty(json))
                 {
                     (string field, string order)? sort = null;
-                    return (query, param, total, sort);
+                    return (query, total, sort);
                 }
                 try
                 {
@@ -323,7 +319,7 @@ public class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid json array: {json}" }
                         });
                     }
-                    return (query, param, total, sort: (field: sort[0], order: sort[1]));
+                    return (query, total, sort: (field: sort[0], order: sort[1]));
                 }
                 catch (JsonException e)
                 {
@@ -335,7 +331,7 @@ public class GetListQuery<TEntity>
             })
             .Then("(sort) Get member access", p =>
             {
-                var (query, param, total, sort) = p;
+                var (query, total, sort) = p;
                 if (sort is (string field, string order))
                 {
                     var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
@@ -347,17 +343,17 @@ public class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid sort field: ${field}" }
                         });
                     }
-                    return (query, param, total, sort: (member, order, entityParameter));
+                    return (query, total, sort: (member, order, entityParameter));
                 }
                 else
                 {
                     (Expression member, string order, ParameterExpression entityParameter)? sortForMenber = null;
-                    return (query, param, total, sort: sortForMenber);
+                    return (query, total, sort: sortForMenber);
                 }
             })
             .Then("(sort) Build sort for query", p =>
             {
-                var (query, param, total, sort) = p;
+                var (query, total, sort) = p;
                 if (sort is (Expression member, string order, ParameterExpression entityParameter))
                 {
                     var expression = Expression.Lambda<Func<TEntity, object>>(
@@ -374,14 +370,14 @@ public class GetListQuery<TEntity>
                             ["sort"] = new[] { $"Invalid sort order: ${order}" }
                         })
                     };
-                    return (query: sortedQuery, param, total);
+                    return (query: sortedQuery, total);
                 }
-                return (query, param, total);
+                return (query, total);
             })
             .Then("(range) Apply", p =>
             {
-                var (query, param, total) = p;
-                var json = param.range;
+                var (query, total) = p;
+                var json = UseRequest().range;
                 if (string.IsNullOrEmpty(json)) return (query, total, (start: 0, end: int.MaxValue));
                 try
                 {
@@ -408,6 +404,7 @@ public class GetListQuery<TEntity>
             .Then("Run query", async p =>
             {
                 var (query, total, range) = p;
+                var cancellationToken = UseCancellationToken();
                 var data = await query.ToArrayAsync(cancellationToken);
                 return (range, total, data);
             })
@@ -418,9 +415,6 @@ public class GetListQuery<TEntity>
                     ? (range.start, Math.Min(range.end, range.start + data.Length - 1))
                     : null;
                 return (data, total, range: responseRange);
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }
+

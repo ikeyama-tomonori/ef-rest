@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text.Json;
-using System.Threading;
 using CloudCqs;
 using CloudCqs.Query;
 using EfRest.Extensions;
@@ -14,22 +13,20 @@ namespace EfRest;
 public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntity>
         where TEntity : class
 {
-    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken) : base(option)
-    {
-        var handler = new Handler()
-            .Then("Create base query", p =>
+    public GetOneQuery(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+        : base(option) => SetHandler(new Handler()
+            .Then("Create base query", _ =>
             {
-                var (id, embed) = p;
                 var query = db
                     .Set<TEntity>()
                     .AsNoTracking();
-                return (query, id, embed);
+                return query;
             })
             .Then("(embed) Parse json object", p =>
             {
-                var (query, id, embedParam) = p;
-                var json = embedParam;
-                if (json == null) return (query, id, embed: Array.Empty<string>());
+                var query = p;
+                var json = UseRequest().embed;
+                if (json == null) return (query, embed: Array.Empty<string>());
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
@@ -38,7 +35,7 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                         ["embed"] = new[] { $"Invalid json array: {json}" }
                     });
 
-                    return (query, id, embed);
+                    return (query, embed);
                 }
                 catch (JsonException e)
                 {
@@ -50,7 +47,7 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
             })
             .Then("(embed) Convert json property names to EF's", p =>
             {
-                var (query, id, embed) = p;
+                var (query, embed) = p;
                 var convertedNames = embed
                     .Select(embedItem =>
                     {
@@ -90,18 +87,18 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                         return includeName;
                     })
                     .ToArray();
-                return (query, id, embed: convertedNames);
+                return (query, embed: convertedNames);
             })
             .Then("(embed) Apply embed", p =>
             {
-                var (query, id, embed) = p;
+                var (query, embed) = p;
                 var embedQuery = embed
                     .Aggregate(query, (acc, cur) => acc.Include(cur));
-                return (query: embedQuery, id);
+                return embedQuery;
             })
             .Then("Get key's PropertyInfo", p =>
             {
-                var (query, id) = p;
+                var query = p;
                 var dbSet = db.Set<TEntity>();
                 var propertyInfo = dbSet
                     .EntityType
@@ -116,11 +113,12 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (query, id, propertyInfo);
+                return (query, propertyInfo);
             })
             .Then("Create where expression", p =>
             {
-                var (query, id, propertyInfo) = p;
+                var (query, propertyInfo) = p;
+                var id = UseRequest().id;
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 var memberAccess = Expression.MakeMemberAccess(entityParameter, propertyInfo);
                 var valueExpression = Expression.Convert(Expression.Constant(id), propertyInfo.PropertyType);
@@ -132,6 +130,7 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
             .Then("Run query", async p =>
             {
                 var (id, query) = p;
+                var cancellationToken = UseCancellationToken();
                 var data = await query.SingleOrDefaultAsync(cancellationToken);
                 if (data == null)
                 {
@@ -141,9 +140,5 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                     });
                 }
                 return data;
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }

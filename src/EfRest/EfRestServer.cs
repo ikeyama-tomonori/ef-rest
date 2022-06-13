@@ -40,7 +40,7 @@ public class EfRestServer
     {
         var repository = GetRepositoryFactory(name);
         var request = (embed: param["embed"], filter: param["filter"], sort: param["sort"], range: param["range"]);
-        var (json, total, range) = await repository.GetListFacade(cancellationToken).Invoke(request);
+        var (json, total, range) = await repository.GetListFacade().Invoke(request, cancellationToken);
         var contentRange = range is (var first, var last)
             ? new ContentRangeHeaderValue(first, last, total)
             : new ContentRangeHeaderValue(total);
@@ -63,7 +63,7 @@ public class EfRestServer
     public async Task<HttpResponseMessage> GetOne(string name, string id, NameValueCollection param, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var json = await repository.GetOneFacade(cancellationToken).Invoke((id, param["embed"]));
+        var json = await repository.GetOneFacade().Invoke((id, param["embed"]), cancellationToken);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -75,7 +75,7 @@ public class EfRestServer
     public async Task<HttpResponseMessage> AddOne(string name, string item, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        var id = await repository.CreateFacade(cancellationToken).Invoke(item);
+        var id = await repository.CreateFacade().Invoke(item, cancellationToken);
         var response = await GetOne(name, id, new(), cancellationToken);
         response.StatusCode = HttpStatusCode.Created;
         response.Headers.Location = new Uri($"{BaseAddress.AbsolutePath}{name}/{id}", UriKind.Relative);
@@ -85,7 +85,7 @@ public class EfRestServer
     public async Task<HttpResponseMessage> UpdateOne(string name, string id, string item, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        await repository.UpdateFacade(cancellationToken).Invoke((id, item));
+        await repository.UpdateFacade().Invoke((id, item), cancellationToken);
         var response = await GetOne(name, id, new(), cancellationToken);
         return response;
     }
@@ -93,7 +93,7 @@ public class EfRestServer
     public async Task<HttpResponseMessage> PatchOne(string name, string id, string item, CancellationToken cancellationToken = default)
     {
         var repository = GetRepositoryFactory(name);
-        await repository.PatchFacade(cancellationToken).Invoke((id, item));
+        await repository.PatchFacade().Invoke((id, item), cancellationToken);
         var response = await GetOne(name, id, new(), cancellationToken);
         return response;
     }
@@ -102,7 +102,7 @@ public class EfRestServer
     {
         var repository = GetRepositoryFactory(name);
         var response = await GetOne(name, id, new(), cancellationToken);
-        await repository.DeleteFacade(cancellationToken).Invoke(id);
+        await repository.DeleteFacade().Invoke(id, cancellationToken);
         return response;
     }
 
@@ -137,7 +137,7 @@ public class EfRestServer
 
             try
             {
-                var (resource, id, param) = await decodedUrlQuery.Invoke(request.RequestUri);
+                var (resource, id, param) = await decodedUrlQuery.Invoke(request.RequestUri, cancellationToken);
                 var item =
                     request.Content == null
                     ? null
@@ -262,33 +262,29 @@ public class EfRestServer
     {
         if (DbContext == null) throw new NullGuardException(nameof(DbContext));
         return new(
-            CreateFacade: cancellationToken
-            => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
+            CreateFacade: () => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
                 repository: (new JsonDeserializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new BadRequestException(new()
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken),
+                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext),
                             new JsonSerializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetListFacade: cancellationToken
-            => new GetListFacade<TEntity>(option: CloudCqsOptions,
-                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+            GetListFacade: () => new GetListFacade<TEntity>(option: CloudCqsOptions,
+                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                              new JsonSerializeQuery<TEntity[]>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetOneFacade: cancellationToken
-            => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
+            GetOneFacade: () => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
                 repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
                                     ["id"] = new[] { e.Message, json }
                                 })),
-                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken),
+                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions),
                             new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
 
-           UpdateFacade: cancellationToken
-           => new UpdateFacade<TEntity, TKey>(option: CloudCqsOptions,
+           UpdateFacade: () => new UpdateFacade<TEntity, TKey>(option: CloudCqsOptions,
                repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
@@ -299,10 +295,9 @@ public class EfRestServer
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                           updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken))),
+                           updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext))),
 
-           PatchFacade: cancellationToken
-           => new PatchFacade<TKey>(option: CloudCqsOptions,
+           PatchFacade: () => new PatchFacade<TKey>(option: CloudCqsOptions,
             repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                 whenError: (e, json) => throw new NotFoundException(new()
                                 {
@@ -313,15 +308,14 @@ public class EfRestServer
                                 {
                                     ["body"] = new[] { e.Message, json }
                                 })),
-                          patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions, cancellationToken))),
+                          patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions))),
 
-           DeleteFacade: cancellationToken
-            => new DeleteFacade<TKey>(option: CloudCqsOptions,
+           DeleteFacade: () => new DeleteFacade<TKey>(option: CloudCqsOptions,
                  repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
                                  whenError: (e, json) => throw new NotFoundException(new()
                                  {
                                      ["id"] = new[] { e.Message, json }
                                  })),
-                             new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext, cancellationToken))));
+                             new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext))));
     }
 }

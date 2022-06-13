@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
 using CloudCqs;
 using CloudCqs.Command;
 using EfRest.Extensions;
@@ -12,19 +11,18 @@ namespace EfRest;
 public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
         where TEntity : class
 {
-    public PatchCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions, CancellationToken cancellationToken)
-        : base(option)
-    {
-        var handler = new Handler()
+    public PatchCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
+        : base(option) => SetHandler(new Handler()
             .Validate("Json string shoud be object",
             new()
             {
                 ["body"] = new[] { "Json string shoud be a object" }
             },
-            p => p.patch.ValueKind == JsonValueKind.Object)
+            _ => UseRequest().patch.ValueKind == JsonValueKind.Object)
             .Then("Get current entity", async p =>
             {
-                var (idValue, patch) = p;
+                var idValue = UseRequest().id;
+                var cancellationToken = UseCancellationToken();
                 var current = await db
                     .Set<TEntity>()
                     .FindAsync(new[] { idValue as object }, cancellationToken);
@@ -35,11 +33,11 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                         ["id"] = new[] { $"Not found: {idValue}" }
                     });
                 }
-                return (patch, current);
+                return current;
             })
             .Then("Get key's prop name", p =>
             {
-                var (patch, current) = p;
+                var current = p;
                 var keyName = db
                     .Set<TEntity>()
                     .EntityType
@@ -55,11 +53,12 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                         ["resource"] = new[] { $"Entity must have single primary key." }
                     });
                 }
-                return (patch, current, keyName);
+                return (current, keyName);
             })
             .Then("Parse json", p =>
             {
-                var (patch, current, keyName) = p;
+                var (current, keyName) = p;
+                var patch = UseRequest().patch;
                 try
                 {
                     var properties = patch
@@ -125,11 +124,8 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
             })
             .Then("Save to database", async _ =>
             {
+                var cancellationToken = UseCancellationToken();
                 await db.SaveChangesAsync(cancellationToken);
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }
 

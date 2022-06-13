@@ -12,8 +12,8 @@ public static class Options
         RepositoryTerminated = p => Console.WriteLine(
             $"Terminated: {p.repositoryType.Name} request={p.request}, exception={p.exception} in {p.timeSpan.TotalMilliseconds}ms"),
         FunctionExecuted = p => Console.WriteLine(
-            $"Executed: {p.repositoryType.Name}[{p.description}] request={p.request}, response={p.response} in {p.timeSpan.TotalMilliseconds}ms"),
+            $"Executed: {p.repositoryType.Name}[{p.description}] param={p.param}, result={p.result} in {p.timeSpan.TotalMilliseconds}ms"),
         FunctionTerminated = p => Console.WriteLine(
-            $"Terminated: {p.repositoryType.Name}[{p.description}] request={p.request}, exception={p.exception} in {p.timeSpan.TotalMilliseconds}ms"),
+            $"Terminated: {p.repositoryType.Name}[{p.description}] param={p.param}, exception={p.exception} in {p.timeSpan.TotalMilliseconds}ms"),
     };
 }

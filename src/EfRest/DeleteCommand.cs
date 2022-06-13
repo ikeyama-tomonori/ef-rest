@@ -1,5 +1,4 @@
-﻿using System.Threading;
-using CloudCqs;
+﻿using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,13 +8,12 @@ public class DeleteCommand<TEntity, TKey> : Command<TKey>
     where TEntity : class
     where TKey : notnull
 {
-    public DeleteCommand(CloudCqsOptions option, DbContext db, CancellationToken cancellationToken)
-        : base(option)
-    {
-        var handler = new Handler()
-            .Then("Get current entity", async p =>
+    public DeleteCommand(CloudCqsOptions option, DbContext db)
+        : base(option) => SetHandler(new Handler()
+            .Then("Get current entity", async _ =>
             {
-                var idValue = p;
+                var idValue = UseRequest();
+                var cancellationToken = UseCancellationToken();
                 var entity = await db
                     .Set<TEntity>()
                     .FindAsync(new[] { idValue as object }, cancellationToken);
@@ -35,10 +33,8 @@ public class DeleteCommand<TEntity, TKey> : Command<TKey>
             })
             .Then("Save to database", async _ =>
             {
+                var cancellationToken = UseCancellationToken();
                 await db.SaveChangesAsync(cancellationToken);
-            })
-            .Build();
-
-        SetHandler(handler);
-    }
+            }));
 }
+

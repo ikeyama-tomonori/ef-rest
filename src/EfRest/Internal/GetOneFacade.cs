@@ -10,13 +10,12 @@ internal class GetOneFacade<TEntity, TKey> : Facade<(string id, string? embed), 
     public GetOneFacade(CloudCqsOptions option,
         (IQuery<string, TKey> jsonDeserializeQuery,
         IQuery<(TKey id, string? embed), TEntity> getOneQuery,
-        IQuery<TEntity, string> jsonSerializeQuery) repository) : base(option)
-    {
-        var handler = new Handler()
+        IQuery<TEntity, string> jsonSerializeQuery) repository)
+        : base(option) => SetHandler(new Handler()
             .Invoke("Invoke json deserializer to convert id value",
                 repository.jsonDeserializeQuery,
-                p => p.id,
-                p => (id: p.response, p.param.embed))
+                _ => UseRequest().id,
+                p => (id: p.response, UseRequest().embed))
             .Invoke($"Invoke data query",
                 repository.getOneQuery,
                 p => p,
@@ -24,9 +23,5 @@ internal class GetOneFacade<TEntity, TKey> : Facade<(string id, string? embed), 
             .Invoke("Invoke json serializer to convert response data",
                 repository.jsonSerializeQuery,
                 p => p,
-                p => p.response)
-            .Build();
-
-        SetHandler(handler);
-    }
+                p => p.response));
 }
