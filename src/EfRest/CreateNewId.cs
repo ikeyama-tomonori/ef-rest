@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Net;
 using CloudCqs;
 using CloudCqs.NewId;
 using Microsoft.EntityFrameworkCore;
@@ -23,10 +24,9 @@ public class CreateNewId<TEntity, TKey> : NewId<TEntity, TKey>
                     .PropertyInfo;
                 if (propertyInfo == null)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["resource"] = new[] { $"Entity must have single primary key." }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new($"Entity must have single primary key.", new[] { "resource" }));
                 }
                 return propertyInfo;
             })

@@ -1,4 +1,5 @@
-﻿using CloudCqs;
+﻿using System.Net;
+using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,10 +20,9 @@ public class DeleteCommand<TEntity, TKey> : Command<TKey>
                     .FindAsync(new[] { idValue as object }, cancellationToken);
                 if (entity == null)
                 {
-                    throw new NotFoundException(new()
-                    {
-                        ["id"] = new[] { $"Not found: {idValue}" }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.NotFound,
+                        new($"Not found: {idValue}", new[] { "id" }));
                 }
                 return entity;
             })

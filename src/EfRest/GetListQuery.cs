@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq.Expressions;
+using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -34,19 +32,19 @@ public class GetListQuery<TEntity>
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
-                    if (embed == null) throw new BadRequestException(new()
+                    if (embed == null)
                     {
-                        ["embed"] = new[] { $"Invalid json array: {json}" }
-                    });
-
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Invalid json array: {json}", new[] { "embed" }));
+                    }
                     return (query, embed);
                 }
                 catch (JsonException e)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["embed"] = new[] { e.Message }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new(e.Message, new[] { "embed" }));
                 }
             })
             .Then("(embed) Convert json property names to EF's", p =>
@@ -68,10 +66,9 @@ public class GetListQuery<TEntity>
                                         jsonSerializerOptions);
                                 if (propertyInfo == null)
                                 {
-                                    throw new BadRequestException(new()
-                                    {
-                                        ["embed"] = new[] { $"Invalid field name: {embedItem}" }
-                                    });
+                                    throw new StatusCodeException(
+                                        HttpStatusCode.BadRequest,
+                                        new($"Invalid field name: {embedItem}", new[] { "embed" }));
                                 }
                                 var newNameList = nameList.Append(propertyInfo.Name).ToArray();
                                 var propType = propertyInfo.PropertyType;
@@ -114,10 +111,9 @@ public class GetListQuery<TEntity>
                     using var jsonDocument = JsonDocument.Parse(json);
                     if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                     {
-                        throw new BadRequestException(new()
-                        {
-                            ["filter"] = new[] { $"Not object: {json}" }
-                        });
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Not object: {json}", new[] { "filter" }));
                     }
                     var filters = jsonDocument
                         .RootElement
@@ -132,10 +128,9 @@ public class GetListQuery<TEntity>
                 }
                 catch (JsonException e)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["filter"] = new[] { e.Message }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new(e.Message, new[] { "filter" }));
                 }
             })
             .Then("(filter) Divide by search or not", p =>
@@ -238,10 +233,9 @@ public class GetListQuery<TEntity>
                                 jsonSerializerOptions);
                         if (member == null)
                         {
-                            throw new BadRequestException(new()
-                            {
-                                ["filter"] = new[] { $"Property not found: {name}" }
-                            });
+                            throw new StatusCodeException(
+                                HttpStatusCode.BadRequest,
+                                new($"Property not found: {name}", new[] { "filter" }));
                         }
 
                         return (getExpression, member, json, typeConverter);
@@ -265,10 +259,9 @@ public class GetListQuery<TEntity>
                         }
                         catch (JsonException e)
                         {
-                            throw new BadRequestException(new()
-                            {
-                                ["filter"] = new[] { e.Message }
-                            });
+                            throw new StatusCodeException(
+                                HttpStatusCode.BadRequest,
+                                new(e.Message, new[] { "filter" }));
                         }
                     })
                     .ToArray();
@@ -314,19 +307,17 @@ public class GetListQuery<TEntity>
                     var sort = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
                     if (sort == null || sort.Length != 2)
                     {
-                        throw new BadRequestException(new()
-                        {
-                            ["sort"] = new[] { $"Invalid json array: {json}" }
-                        });
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Invalid json array: {json}", new[] { "sort" }));
                     }
                     return (query, total, sort: (field: sort[0], order: sort[1]));
                 }
                 catch (JsonException e)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["sort"] = new[] { e.Message }
-                    });
+                    throw new StatusCodeException(
+                       HttpStatusCode.BadRequest,
+                       new(e.Message, new[] { "sort" }));
                 }
             })
             .Then("(sort) Get member access", p =>
@@ -338,10 +329,9 @@ public class GetListQuery<TEntity>
                     var member = typeof(TEntity).GetMemberExpressionByJsonName(field, entityParameter, jsonSerializerOptions);
                     if (member == null)
                     {
-                        throw new BadRequestException(new()
-                        {
-                            ["sort"] = new[] { $"Invalid sort field: ${field}" }
-                        });
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Invalid sort field: ${field}", new[] { "sort" }));
                     }
                     return (query, total, sort: (member, order, entityParameter));
                 }
@@ -365,10 +355,9 @@ public class GetListQuery<TEntity>
                             => query.OrderBy(expression),
                         var o when o.Equals("desc", StringComparison.OrdinalIgnoreCase)
                             => query.OrderByDescending(expression),
-                        _ => throw new BadRequestException(new()
-                        {
-                            ["sort"] = new[] { $"Invalid sort order: ${order}" }
-                        })
+                        _ => throw new StatusCodeException(
+                                HttpStatusCode.BadRequest,
+                                new($"Invalid sort order: ${order}", new[] { "sort" }))
                     };
                     return (query: sortedQuery, total);
                 }
@@ -384,10 +373,9 @@ public class GetListQuery<TEntity>
                     var parsedRange = JsonSerializer.Deserialize<int[]>(json, jsonSerializerOptions);
                     if (parsedRange == null || parsedRange.Length != 2)
                     {
-                        throw new BadRequestException(new()
-                        {
-                            ["range"] = new[] { $"Invalid json array: {json}" }
-                        });
+                        throw new StatusCodeException(
+                           HttpStatusCode.BadRequest,
+                           new($"Invalid json array: {json}", new[] { "range" }));
                     }
                     var range = (start: parsedRange[0], end: parsedRange[1]);
                     var rangedQuery = query.Skip(range.start).Take(range.end - range.start + 1);
@@ -395,10 +383,9 @@ public class GetListQuery<TEntity>
                 }
                 catch (JsonException e)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["range"] = new[] { e.Message }
-                    });
+                    throw new StatusCodeException(
+                       HttpStatusCode.BadRequest,
+                       new(e.Message, new[] { "range" }));
                 }
             })
             .Then("Run query", async p =>

@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
+using System.Net;
 using System.Text.Json;
 using CloudCqs;
 using CloudCqs.Query;
@@ -30,19 +28,19 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                 try
                 {
                     var embed = JsonSerializer.Deserialize<string[]>(json, jsonSerializerOptions);
-                    if (embed == null) throw new BadRequestException(new()
+                    if (embed == null)
                     {
-                        ["embed"] = new[] { $"Invalid json array: {json}" }
-                    });
-
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Invalid json array: {json}", new[] { "embed" }));
+                    }
                     return (query, embed);
                 }
                 catch (JsonException e)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["embed"] = new[] { e.Message }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new(e.Message, new[] { "embed" }));
                 }
             })
             .Then("(embed) Convert json property names to EF's", p =>
@@ -64,10 +62,9 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                                         jsonSerializerOptions);
                                 if (propertyInfo == null)
                                 {
-                                    throw new BadRequestException(new()
-                                    {
-                                        ["embed"] = new[] { $"Invalid field name: {embedItem}" }
-                                    });
+                                    throw new StatusCodeException(
+                                        HttpStatusCode.BadRequest,
+                                        new($"Invalid field name: {embedItem}", new[] { "embed" }));
                                 }
                                 var newNameList = nameList.Append(propertyInfo.Name).ToArray();
                                 var propType = propertyInfo.PropertyType;
@@ -108,10 +105,9 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                     .PropertyInfo;
                 if (propertyInfo == null)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["resource"] = new[] { $"Entity must have single primary key." }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new($"Entity must have single primary key.", new[] { "resource" }));
                 }
                 return (query, propertyInfo);
             })
@@ -134,10 +130,9 @@ public class GetOneQuery<TEntity, TKey> : Query<(TKey id, string? embed), TEntit
                 var data = await query.SingleOrDefaultAsync(cancellationToken);
                 if (data == null)
                 {
-                    throw new NotFoundException(new()
-                    {
-                        ["id"] = new[] { $"Id not found: {id}" }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.NotFound,
+                        new($"Not found: {id}", new[] { "id" }));
                 }
                 return data;
             }));

@@ -144,7 +144,7 @@ public class EfRestServer
         }
         catch (StatusCodeException exception)
         {
-            var responseBody = JsonSerializer.Serialize(exception.Object);
+            var responseBody = exception.ValidationResult.ErrorMessage;
             var statusCode = exception.HttpStatusCode;
 
             return ((int)statusCode, new(), responseBody);
@@ -160,10 +160,9 @@ public class EfRestServer
         if (propertyInfo == null
             || propertyInfo.PropertyType.GetGenericTypeDefinition() != typeof(DbSet<>))
         {
-            throw new NotFoundException(new()
-            {
-                { nameof(name), new[] { $"Resource name not found: {name}" } }
-            });
+            throw new StatusCodeException(
+                HttpStatusCode.NotFound,
+                new($"Resource name not found: {name}", new[] { nameof(name) }));
         }
         var entityType = propertyInfo.PropertyType.GetGenericArguments().First();
         var getRepositoryFactoryWithKey = GetType()
@@ -201,10 +200,9 @@ public class EfRestServer
             .PropertyType;
         if (keyType == null)
         {
-            throw new BadRequestException(new()
-            {
-                ["resource"] = new[] { $"Entity must have single primary key." }
-            });
+            throw new StatusCodeException(
+                HttpStatusCode.BadRequest,
+                new($"Entity must have single primary key.", new[] { "resource" }));
         }
         var createRepositoryFactory = GetType()
             .GetMethod(
@@ -233,60 +231,80 @@ public class EfRestServer
     {
         if (DbContext == null) throw new NullGuardException(nameof(DbContext));
         return new(
-            CreateFacade: () => new CreateFacade<TEntity, TKey>(option: CloudCqsOptions,
-                repository: (new JsonDeserializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new BadRequestException(new()
-                                {
-                                    ["body"] = new[] { e.Message, json }
-                                })),
-                            new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext),
-                            new JsonSerializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions))),
+            CreateFacade: () => new CreateFacade<TEntity, TKey>(
+                option: CloudCqsOptions,
+                repository: (
+                    jsonDeserializeQuery: new JsonDeserializeQuery<TEntity>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"{e.Message}: {json}", new[] { "body" }))),
+                    createNewId: new CreateNewId<TEntity, TKey>(CloudCqsOptions, DbContext),
+                    jsonSerializeQuery: new JsonSerializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetListFacade: () => new GetListFacade<TEntity>(option: CloudCqsOptions,
-                 repository: (new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
-                             new JsonSerializeQuery<TEntity[]>(CloudCqsOptions, JsonSerializerOptions))),
+            GetListFacade: () => new GetListFacade<TEntity>(
+                option: CloudCqsOptions,
+                repository: (
+                    getListQuery: new GetListQuery<TEntity>(CloudCqsOptions, DbContext, JsonSerializerOptions),
+                    jsonSerializeQuery: new JsonSerializeQuery<TEntity[]>(CloudCqsOptions, JsonSerializerOptions))),
 
-            GetOneFacade: () => new GetOneFacade<TEntity, TKey>(option: CloudCqsOptions,
-                repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new NotFoundException(new()
-                                {
-                                    ["id"] = new[] { e.Message, json }
-                                })),
-                            new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions),
-                            new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
+            GetOneFacade: () => new GetOneFacade<TEntity, TKey>(
+                option: CloudCqsOptions,
+                repository: (
 
-           UpdateFacade: () => new UpdateFacade<TEntity, TKey>(option: CloudCqsOptions,
-               repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new NotFoundException(new()
-                                {
-                                    ["id"] = new[] { e.Message, json }
-                                })),
-                           entityDeserializeQuery: new JsonDeserializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new BadRequestException(new()
-                                {
-                                    ["body"] = new[] { e.Message, json }
-                                })),
-                           updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext))),
+                    jsonDeserializeQuery: new JsonDeserializeQuery<TKey>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.NotFound,
+                            new($"{e.Message}: {json}", new[] { "id" }))),
+                    getOneQuery: new GetOneQuery<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions),
+                    jsonSerializeQuery: new JsonSerializeQuery<TEntity>(CloudCqsOptions, JsonSerializerOptions))),
 
-           PatchFacade: () => new PatchFacade<TKey>(option: CloudCqsOptions,
-            repository: (keyDeserializeQuery: new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new NotFoundException(new()
-                                {
-                                    ["id"] = new[] { e.Message, json }
-                                })),
-                           patchDeserializeQuery: new JsonDeserializeQuery<JsonElement>(CloudCqsOptions, JsonSerializerOptions,
-                                whenError: (e, json) => throw new BadRequestException(new()
-                                {
-                                    ["body"] = new[] { e.Message, json }
-                                })),
-                          patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions))),
+            UpdateFacade: () => new UpdateFacade<TEntity, TKey>(
+                option: CloudCqsOptions,
+                repository: (
+                    keyDeserializeQuery: new JsonDeserializeQuery<TKey>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.NotFound,
+                            new($"{e.Message}: {json}", new[] { "id" }))),
+                    entityDeserializeQuery: new JsonDeserializeQuery<TEntity>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"{e.Message}: {json}", new[] { "body" }))),
+                    updateCommand: new UpdateCommand<TEntity, TKey>(CloudCqsOptions, DbContext))),
 
-           DeleteFacade: () => new DeleteFacade<TKey>(option: CloudCqsOptions,
-                 repository: (new JsonDeserializeQuery<TKey>(CloudCqsOptions, JsonSerializerOptions,
-                                 whenError: (e, json) => throw new NotFoundException(new()
-                                 {
-                                     ["id"] = new[] { e.Message, json }
-                                 })),
-                             new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext))));
+            PatchFacade: () => new PatchFacade<TKey>(
+                option: CloudCqsOptions,
+                repository: (
+                    keyDeserializeQuery: new JsonDeserializeQuery<TKey>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.NotFound,
+                            new($"{e.Message}: {json}", new[] { "id" }))),
+                    patchDeserializeQuery: new JsonDeserializeQuery<JsonElement>(
+                        CloudCqsOptions,
+                        JsonSerializerOptions,
+                        whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"{e.Message}: {json}", new[] { "body" }))),
+                    patchCommand: new PatchCommand<TEntity, TKey>(CloudCqsOptions, DbContext, JsonSerializerOptions))),
+
+           DeleteFacade: () => new DeleteFacade<TKey>(
+               option: CloudCqsOptions,
+               repository: (
+                   jsonDeserializeQuery: new JsonDeserializeQuery<TKey>(
+                       CloudCqsOptions,
+                       JsonSerializerOptions,
+                       whenError: (e, json) => throw new StatusCodeException(
+                            HttpStatusCode.NotFound,
+                            new($"{e.Message}: {json}", new[] { "id" }))),
+                   deleteCommand: new DeleteCommand<TEntity, TKey>(CloudCqsOptions, DbContext))));
     }
 }

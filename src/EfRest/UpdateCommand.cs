@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿using System.Net;
 using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
@@ -19,17 +19,16 @@ public class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
                     .FindAsync(new[] { idValue as object }, cancellationToken);
                 if (current == null)
                 {
-                    throw new NotFoundException(new()
-                    {
-                        ["id"] = new[] { $"Not found: {idValue}" }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.NotFound,
+                        new($"Not found: {idValue}", new[] { "id" }));
                 }
                 return current;
             })
             .Then("Get key's prop name", p =>
             {
                 var current = p;
-                var keyPropertyName = db
+                var keyName = db
                     .Set<TEntity>()
                     .EntityType
                     .FindPrimaryKey()?
@@ -37,14 +36,13 @@ public class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
                     .SingleOrDefault()?
                     .PropertyInfo?
                     .Name;
-                if (keyPropertyName == null)
+                if (keyName == null)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["resource"] = new[] { $"Entity must have single primary key." }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new($"Entity must have single primary key.", new[] { "resource" }));
                 }
-                return (current, keyPropertyName);
+                return (current, keyName);
             })
             .Then("Update current entity", p =>
             {
