@@ -148,10 +148,10 @@ public class GetListQuery<TEntity>
                         .Set<TEntity>()
                         .EntityType
                         .GetProperties()
-                        .Select(prop => prop.PropertyInfo)
-                        .Where(propertyInfo =>
-                            propertyInfo is not null
-                            && propertyInfo.PropertyType == typeof(string));
+                        .Where(property =>
+                            property.PropertyInfo is PropertyInfo propertyInfo
+                            && propertyInfo.PropertyType == typeof(string))
+                        .Select(property => property?.PropertyInfo!);
 
                     var value = JsonSerializer.Deserialize<string>(json, jsonSerializerOptions);
                     var searchExpression = !stringProperties.Any()
