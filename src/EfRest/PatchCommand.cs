@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CloudCqs;
@@ -13,12 +13,10 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
 {
     public PatchCommand(CloudCqsOptions option, DbContext db, JsonSerializerOptions jsonSerializerOptions)
         : base(option) => SetHandler(new Handler()
-            .Validate("Json string shoud be object",
-            new()
-            {
-                ["body"] = new[] { "Json string shoud be a object" }
-            },
-            _ => UseRequest().patch.ValueKind == JsonValueKind.Object)
+            .Validate(
+                "Json string shoud be object",
+                new("Json string shoud be a object", new[] { "body" }),
+                _ => UseRequest().patch.ValueKind == JsonValueKind.Object)
             .Then("Get current entity", async p =>
             {
                 var idValue = UseRequest().id;
@@ -28,10 +26,9 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                     .FindAsync(new[] { idValue as object }, cancellationToken);
                 if (current == null)
                 {
-                    throw new NotFoundException(new()
-                    {
-                        ["id"] = new[] { $"Not found: {idValue}" }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.NotFound,
+                        new($"Not found: {idValue}", new[] { "id" }));
                 }
                 return current;
             })
@@ -48,10 +45,9 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                     .Name;
                 if (keyName == null)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["resource"] = new[] { $"Entity must have single primary key." }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new($"Entity must have single primary key.", new[] { "resource" }));
                 }
                 return (current, keyName);
             })
@@ -72,10 +68,9 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                 }
                 catch (JsonException exception)
                 {
-                    throw new BadRequestException(new()
-                    {
-                        ["body"] = new[] { exception.Message }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.BadRequest,
+                        new(exception.Message, new[] { "body" }));
                 }
             })
             .Then("Convert json properties", p =>
@@ -89,10 +84,9 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                             .GetPropertyInfoByJsonName(propertyName, jsonSerializerOptions, typeof(JsonIgnoreAttribute));
                         if (propertyInfo == null)
                         {
-                            throw new BadRequestException(new()
-                            {
-                                [propertyName] = new[] { "Invalid field name" }
-                            });
+                            throw new StatusCodeException(
+                                HttpStatusCode.BadRequest,
+                                new("Invalid field name", new[] { propertyName }));
                         }
                         try
                         {
@@ -104,10 +98,9 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                         }
                         catch (JsonException exception)
                         {
-                            throw new BadRequestException(new()
-                            {
-                                [propertyInfo.Name] = new[] { exception.Message }
-                            });
+                            throw new StatusCodeException(
+                                HttpStatusCode.BadRequest,
+                                new(exception.Message, new[] { propertyInfo.Name }));
                         }
                     })
                     .Where(p => p.propertyInfo.Name != keyName)

@@ -1,5 +1,5 @@
 ﻿using System.Collections.Specialized;
-using System.Linq;
+using System.Net;
 using System.Text.Json;
 using System.Web;
 using CloudCqs;
@@ -82,10 +82,9 @@ internal class DecodedUrlQuery : Query<
                            jsonSerializerOptions);
                 if (entityPropertyInfo == null)
                 {
-                    throw new NotFoundException(new()
-                    {
-                        ["path"] = new[] { $"Resource name not found: {nominee.resource}" }
-                    });
+                    throw new StatusCodeException(
+                        HttpStatusCode.NotFound,
+                        new($"Resource name not found: {nominee.resource}", new[] { "path" }));
                 }
 
                 return (name: nominee.resource, nominee.id, param);
