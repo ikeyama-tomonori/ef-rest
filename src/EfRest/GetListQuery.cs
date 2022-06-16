@@ -1,9 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CloudCqs;
 using CloudCqs.Query;
 using EfRest.Extensions;
@@ -146,13 +144,15 @@ public class GetListQuery<TEntity>
                 var entityParameter = Expression.Parameter(typeof(TEntity), "entity");
                 if (name != null && json != null)
                 {
-                    var stringProperties = typeof(TEntity)
+                    var stringProperties = db
+                        .Set<TEntity>()
+                        .EntityType
                         .GetProperties()
-                        .Where(propertyInfo =>
-                            propertyInfo.PropertyType == typeof(string)
-                            && propertyInfo.GetCustomAttribute<NotMappedAttribute>() == null
-                            && propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() == null)
-                        .ToArray();
+                        .Where(property =>
+                            property.PropertyInfo is PropertyInfo propertyInfo
+                            && propertyInfo.PropertyType == typeof(string))
+                        .Select(property => property?.PropertyInfo!);
+
                     var value = JsonSerializer.Deserialize<string>(json, jsonSerializerOptions);
                     var searchExpression = !stringProperties.Any()
                         ? null

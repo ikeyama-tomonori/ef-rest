@@ -54,7 +54,7 @@ public class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
                 {
                     var updated = UseRequest().entity;
                     var newValue = propertyInfo.GetValue(updated);
-                    propertyInfo.SetValue(current, newValue);
+                    propertyInfo.SetMethod?.Invoke(current, new[] { newValue });
                 }
             })
             .Then("Save to database", async _ =>
