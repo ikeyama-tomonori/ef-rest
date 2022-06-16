@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EfRest.Example.Model;
@@ -12,6 +11,8 @@ public class Book
     public string Title { get; set; } = "";
 
     public string? Description { get; set; }
+
+    public string TitleAndAuthor => $"{Title} by {AuthorNames}";
 
     [NotMapped]
     public string? AuthorNames { get; set; }

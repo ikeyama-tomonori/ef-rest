@@ -112,7 +112,7 @@ public class PatchCommand<TEntity, TKey> : Command<(TKey id, JsonElement patch)>
                 var (current, propertyValues) = p;
                 foreach (var (propertyInfo, value) in propertyValues)
                 {
-                    propertyInfo.SetValue(current, value);
+                    propertyInfo.SetMethod?.Invoke(current, new[] { value });
                 }
             })
             .Then("Save to database", async _ =>
