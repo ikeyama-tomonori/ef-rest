@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -43,7 +40,10 @@ public class EfRestSwagger
     public OpenApiDocument GetSwagger(string documentName, string documentVersion, string? host = null, string? basePath = null)
     {
         var entities = _resourceTypes;
-        var generatorOptions = new SchemaGeneratorOptions();
+        var generatorOptions = new SchemaGeneratorOptions
+        {
+            SupportNonNullableReferenceTypes = true,
+        };
         var serializerDataContractResolver = new JsonSerializerDataContractResolver(_jsonSerializerOptions);
         var schemaGenerator = new SchemaGenerator(generatorOptions, serializerDataContractResolver);
         var schemaRepository = new SchemaRepository();
