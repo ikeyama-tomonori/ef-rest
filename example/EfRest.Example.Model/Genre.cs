@@ -1,12 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Text.Json.Serialization;
+﻿namespace EfRest.Example.Model;
 
-namespace EfRest.Example.Model;
+using System.Text.Json.Serialization;
 
 public class Genre
 {
     public int Id { get; set; }
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
     public int? ParentGenreId { get; set; }
     public Genre? ParentGenre { get; set; }
 
@@ -15,4 +14,3 @@ public class Genre
 
     public ICollection<Book>? Books { get; set; }
 }
-

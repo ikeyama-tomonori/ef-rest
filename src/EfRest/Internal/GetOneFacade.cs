@@ -1,27 +1,37 @@
-﻿using CloudCqs;
+﻿namespace EfRest.Internal;
+
+using CloudCqs;
 using CloudCqs.Facade;
 
-namespace EfRest.Internal;
-
-internal class GetOneFacade<TEntity, TKey> : Facade<(string id, string? embed), string>
+internal class GetOneFacade<TEntity, TKey> : Facade<(string Id, string? Embed), string>
     where TEntity : notnull
     where TKey : notnull
 {
-    public GetOneFacade(CloudCqsOptions option,
-        (IQuery<string, TKey> jsonDeserializeQuery,
-        IQuery<(TKey id, string? embed), TEntity> getOneQuery,
-        IQuery<TEntity, string> jsonSerializeQuery) repository)
-        : base(option) => SetHandler(new Handler()
-            .Invoke("Invoke json deserializer to convert id value",
-                repository.jsonDeserializeQuery,
-                _ => UseRequest().id,
-                p => (id: p.response, UseRequest().embed))
-            .Invoke($"Invoke data query",
-                repository.getOneQuery,
+    public GetOneFacade(
+        CloudCqsOptions option,
+        (IQuery<string, TKey> JsonDeserializeQuery, IQuery<
+            (TKey Id, string? Embed),
+            TEntity
+        > GetOneQuery,
+        // Serialize to json
+        IQuery<TEntity, string> JsonSerializeQuery) repository
+    ) : base(option)
+    {
+        var handler = new Handler()
+            .Invoke(
+                "Invoke json deserializer to convert id value",
+                repository.JsonDeserializeQuery,
+                _ => this.UseRequest().Id,
+                p => (id: p.Response, this.UseRequest().Embed)
+            )
+            .Invoke($"Invoke data query", repository.GetOneQuery, p => p, p => p.Response)
+            .Invoke(
+                "Invoke json serializer to convert response data",
+                repository.JsonSerializeQuery,
                 p => p,
-                p => p.response)
-            .Invoke("Invoke json serializer to convert response data",
-                repository.jsonSerializeQuery,
-                p => p,
-                p => p.response));
+                p => p.Response
+            );
+
+        this.SetHandler(handler);
+    }
 }

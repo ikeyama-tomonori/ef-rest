@@ -1,19 +1,27 @@
-﻿using System;
-using CloudCqs;
+﻿namespace EfRest.Test;
 
-namespace EfRest.Test;
+using CloudCqs;
 
 public static class Options
 {
-    public static CloudCqsOptions Instance => new()
-    {
-        RepositoryExecuted = p => Console.WriteLine(
-            $"Executed: {p.repositoryType.Name} request={p.request}, response={p.response} in {p.timeSpan.TotalMilliseconds}ms"),
-        RepositoryTerminated = p => Console.WriteLine(
-            $"Terminated: {p.repositoryType.Name} request={p.request}, exception={p.exception} in {p.timeSpan.TotalMilliseconds}ms"),
-        FunctionExecuted = p => Console.WriteLine(
-            $"Executed: {p.repositoryType.Name}[{p.description}] param={p.param}, result={p.result} in {p.timeSpan.TotalMilliseconds}ms"),
-        FunctionTerminated = p => Console.WriteLine(
-            $"Terminated: {p.repositoryType.Name}[{p.description}] param={p.param}, exception={p.exception} in {p.timeSpan.TotalMilliseconds}ms"),
-    };
+    public static CloudCqsOptions Instance =>
+        new()
+        {
+            RepositoryExecuted = p =>
+                Console.WriteLine(
+                    $"Executed: {p.RepositoryType.Name} request={p.Request}, response={p.Response} in {p.TimeSpan.TotalMilliseconds}ms"
+                ),
+            RepositoryTerminated = p =>
+                Console.WriteLine(
+                    $"Terminated: {p.RepositoryType.Name} request={p.Request}, exception={p.Exception} in {p.TimeSpan.TotalMilliseconds}ms"
+                ),
+            FunctionExecuted = p =>
+                Console.WriteLine(
+                    $"Executed: {p.RepositoryType.Name}[{p.Description}] param={p.Param}, result={p.Result} in {p.TimeSpan.TotalMilliseconds}ms"
+                ),
+            FunctionTerminated = p =>
+                Console.WriteLine(
+                    $"Terminated: {p.RepositoryType.Name}[{p.Description}] param={p.Param}, exception={p.Exception} in {p.TimeSpan.TotalMilliseconds}ms"
+                ),
+        };
 }

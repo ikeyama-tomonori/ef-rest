@@ -1,12 +1,9 @@
-﻿using System;
+﻿namespace EfRest.Test;
+
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
 using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-namespace EfRest.Test;
 
 [TestClass]
 public class UpdateTest
@@ -16,27 +13,15 @@ public class UpdateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        var book = new Book
-        {
-            Title = "New Book"
-        };
+        var book = new Book { Title = "New Book" };
         await db.Books.AddAsync(book);
         await db.SaveChangesAsync();
 
-        var modifiedBook = new Book
-        {
-            Title = "Modified Book"
-        };
+        var modifiedBook = new Book { Title = "Modified Book" };
 
         var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -49,30 +34,18 @@ public class UpdateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        var book = new Book
-        {
-            Title = "New Book"
-        };
+        var book = new Book { Title = "New Book" };
         await db.Books.AddAsync(book);
         await db.SaveChangesAsync();
 
         var modifiedBook = new Book
         {
             Title = "Modified Book",
-            BookDetail = new()
-            {
-                Rating = 1.0m
-            }
+            BookDetail = new() { Rating = 1.0m },
         };
 
         var response = await client.PutAsJsonAsync($"Books/{book.Id}", modifiedBook);
@@ -87,27 +60,15 @@ public class UpdateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        var book = new Book
-        {
-            Title = "New Book"
-        };
+        var book = new Book { Title = "New Book" };
         await db.Books.AddAsync(book);
         await db.SaveChangesAsync();
 
-        var modifiedBook = new Book
-        {
-            Title = "Modified Book"
-        };
+        var modifiedBook = new Book { Title = "Modified Book" };
 
         var response = await client.PutAsJsonAsync($"Books/xxx", modifiedBook);
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
@@ -118,20 +79,11 @@ public class UpdateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        var modifiedBook = new Book
-        {
-            Title = "Modified Book"
-        };
+        var modifiedBook = new Book { Title = "Modified Book" };
 
         var response = await client.PutAsJsonAsync($"Books/1", modifiedBook);
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
@@ -142,20 +94,11 @@ public class UpdateTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        var book = new Book
-        {
-            Title = "New Book"
-        };
+        var book = new Book { Title = "New Book" };
         await db.Books.AddAsync(book);
         await db.SaveChangesAsync();
 

@@ -10,3 +10,24 @@ trim_trailing_whitespace = true
 [*.{cs,csx,vb,vbx}]
 indent_size = 4
 dotnet_sort_system_directives_first = true
+[*.cs]
+## StyleCop.Analyzers
+dotnet_diagnostic.SA1600.severity = silent
+dotnet_diagnostic.SA1633.severity = None
+dotnet_diagnostic.SA0001.severity = None
+
+# Csharpier compatibility
+dotnet_diagnostic.SA1000.severity = None
+dotnet_diagnostic.SA1009.severity = None
+dotnet_diagnostic.SA1111.severity = None
+dotnet_diagnostic.SA1118.severity = None
+dotnet_diagnostic.SA1127.severity = None
+dotnet_diagnostic.SA1128.severity = None
+dotnet_diagnostic.SA1137.severity = None
+dotnet_diagnostic.SA1500.severity = None
+dotnet_diagnostic.SA1501.severity = None
+dotnet_diagnostic.SA1502.severity = None
+dotnet_diagnostic.SA1504.severity = None
+dotnet_diagnostic.SA1513.severity = None
+dotnet_diagnostic.SA1515.severity = None
+dotnet_diagnostic.SA1516.severity = None
