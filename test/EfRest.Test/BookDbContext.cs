@@ -1,34 +1,33 @@
-﻿using System;
+﻿namespace EfRest.Test;
+
 using System.Text.Json.Serialization;
 using EfRest.Example.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace EfRest.Test;
-
 public class BookDbContext : DbContext
 {
-    public DbSet<Publisher> Publishers { get; set; } = null!;
-
-    public DbSet<Book> Books { get; set; } = null!;
-
-    [JsonPropertyName("books/details")]
-    public DbSet<BookDetail> BookDetails { get; set; } = null!;
-
-    public DbSet<Author> Authors { get; set; } = null!;
-    public DbSet<Genre> Genres { get; set; } = null!;
-
-    public string DbName { get; }
-
     public BookDbContext()
     {
-        DbName = Guid.NewGuid().ToString();
+        this.DbName = Guid.NewGuid().ToString();
     }
+
+    public DbSet<Publisher> Publishers => this.Set<Publisher>();
+
+    public DbSet<Book> Books => this.Set<Book>();
+
+    [JsonPropertyName("books/details")]
+    public DbSet<BookDetail> BookDetails => this.Set<BookDetail>();
+
+    public DbSet<Author> Authors => this.Set<Author>();
+    public DbSet<Genre> Genres => this.Set<Genre>();
+
+    public string DbName { get; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder
-            .UseInMemoryDatabase(DbName)
+            .UseInMemoryDatabase(this.DbName)
             .ConfigureWarnings(builder =>
             {
                 builder.Log(InMemoryEventId.TransactionIgnoredWarning);

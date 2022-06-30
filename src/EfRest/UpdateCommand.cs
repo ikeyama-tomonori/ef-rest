@@ -1,66 +1,77 @@
-﻿using System.Net;
+﻿namespace EfRest;
+
+using System.Net;
 using CloudCqs;
 using CloudCqs.Command;
 using Microsoft.EntityFrameworkCore;
 
-namespace EfRest;
-
-public class UpdateCommand<TEntity, TKey> : Command<(TKey id, TEntity entity)>
-        where TEntity : class
+public class UpdateCommand<TEntity, TKey> : Command<(TKey Id, TEntity Entity)> where TEntity : class
 {
-    public UpdateCommand(CloudCqsOptions option, DbContext db)
-        : base(option) => SetHandler(new Handler()
-            .Then("Get current entity", async p =>
-            {
-                var idValue = UseRequest().id;
-                var cancellationToken = UseCancellationToken();
-                var current = await db
-                    .Set<TEntity>()
-                    .FindAsync(new[] { idValue as object }, cancellationToken);
-                if (current == null)
+    public UpdateCommand(CloudCqsOptions option, DbContext db) : base(option)
+    {
+        var handler = new Handler()
+            .Then(
+                "Get current entity",
+                async p =>
                 {
-                    throw new StatusCodeException(
-                        HttpStatusCode.NotFound,
-                        new($"Not found: {idValue}", new[] { "id" }));
+                    var (idValue, _) = this.UseRequest();
+                    var cancellationToken = this.UseCancellationToken();
+                    var current = await db.Set<TEntity>()
+                        .FindAsync(new[] { idValue as object }, cancellationToken);
+                    if (current == null)
+                    {
+                        throw new StatusCodeException(
+                            HttpStatusCode.NotFound,
+                            new($"Not found: {idValue}", new[] { "id" })
+                        );
+                    }
+                    return current;
                 }
-                return current;
-            })
-            .Then("Get key's prop name", p =>
-            {
-                var current = p;
-                var keyName = db
-                    .Set<TEntity>()
-                    .EntityType
-                    .FindPrimaryKey()?
-                    .Properties
-                    .SingleOrDefault()?
-                    .PropertyInfo?
-                    .Name;
-                if (keyName == null)
+            )
+            .Then(
+                "Get key's prop name",
+                p =>
                 {
-                    throw new StatusCodeException(
-                        HttpStatusCode.BadRequest,
-                        new($"Entity must have single primary key.", new[] { "resource" }));
+                    var current = p;
+                    var keyName = db.Set<TEntity>()
+                        .EntityType.FindPrimaryKey()
+                        ?.Properties.SingleOrDefault()
+                        ?.PropertyInfo?.Name;
+                    if (keyName == null)
+                    {
+                        throw new StatusCodeException(
+                            HttpStatusCode.BadRequest,
+                            new($"Entity must have single primary key.", new[] { "resource" })
+                        );
+                    }
+                    return (current, keyName);
                 }
-                return (current, keyName);
-            })
-            .Then("Update current entity", p =>
-            {
-                var (current, keyPropertyName) = p;
-                var propertyInfos = typeof(TEntity)
-                    .GetProperties()
-                    .Where(p => p.Name != keyPropertyName);
-                foreach (var propertyInfo in propertyInfos)
+            )
+            .Then(
+                "Update current entity",
+                p =>
                 {
-                    var updated = UseRequest().entity;
-                    var newValue = propertyInfo.GetValue(updated);
-                    propertyInfo.SetMethod?.Invoke(current, new[] { newValue });
+                    var (current, keyPropertyName) = p;
+                    var propertyInfos = typeof(TEntity)
+                        .GetProperties()
+                        .Where(p => p.Name != keyPropertyName);
+                    foreach (var propertyInfo in propertyInfos)
+                    {
+                        var (_, updated) = this.UseRequest();
+                        var newValue = propertyInfo.GetValue(updated);
+                        propertyInfo.SetMethod?.Invoke(current, new[] { newValue });
+                    }
                 }
-            })
-            .Then("Save to database", async _ =>
-            {
-                var cancellationToken = UseCancellationToken();
-                await db.SaveChangesAsync(cancellationToken);
-            }));
-}
+            )
+            .Then(
+                "Save to database",
+                async _ =>
+                {
+                    var cancellationToken = this.UseCancellationToken();
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+            );
 
+        this.SetHandler(handler);
+    }
+}

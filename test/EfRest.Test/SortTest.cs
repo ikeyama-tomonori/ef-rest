@@ -1,92 +1,70 @@
-﻿using System;
-using System.Linq;
+﻿namespace EfRest.Test;
+
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Tasks;
 using System.Web;
 using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EfRest.Test;
-
 [TestClass]
 public class SortTest
 {
-    public Book[] Books { get; }
-
     public SortTest()
     {
-        Books = new[]
+        this.Books = new[]
         {
-                new Book
+            new Book
+            {
+                Title = "Anna Karenina",
+                BookDetail = new() { TotalPages = 1000, Rating = 2.0m, },
+            },
+            new Book
+            {
+                Title = "War and Peace",
+                BookDetail = new()
                 {
-                    Title = "Anna Karenina",
-                    BookDetail = new()
-                    {
-                        TotalPages = 1000,
-                        Rating = 2.0m,
-                    }
+                    TotalPages = 2000,
+                    Rating = 2.5m,
+                    Publisher = new() { Name = "Publisher1" },
                 },
-                new Book
-                {
-                    Title = "War and Peace",
-                    BookDetail = new()
-                    {
-                        TotalPages = 2000,
-                        Rating = 2.5m,
-                        Publisher =new ()
-                        {
-                            Name = "Publisher1"
-                        }
-                    }
-                },
-                new Book
-                {
-                    Title = "Pride and Prejudice",
-                    BookDetail = new()
-                    {
-                        Rating = 3.0m,
-                    }
-                },
-                new Book
-                {
-                    Title = "Sense and Sensibility",
-                    BookDetail = new()
-                    {
-                        TotalPages = 1000,
-                        Rating = 3.5m,
-                    }
-                },
-            };
+            },
+            new Book
+            {
+                Title = "Pride and Prejudice",
+                BookDetail = new() { Rating = 3.0m, },
+            },
+            new Book
+            {
+                Title = "Sense and Sensibility",
+                BookDetail = new() { TotalPages = 1000, Rating = 3.5m, },
+            },
+        };
     }
+
+    public Book[] Books { get; }
 
     [TestMethod]
     public async Task Order_Desc()
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "Rating", "desc" }));
         var response = await client.GetFromJsonAsync<BookDetail[]>($"books/details?sort={sort}");
-        response?.Aggregate((previous, current) =>
-        {
-            Assert.IsTrue(previous.Rating >= current.Rating);
-            return current;
-        });
+        response?.Aggregate(
+            (previous, current) =>
+            {
+                Assert.IsTrue(previous.Rating >= current.Rating);
+                return current;
+            }
+        );
     }
 
     [TestMethod]
@@ -94,30 +72,26 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages", "asc" }));
         var response = await client.GetFromJsonAsync<BookDetail[]>($"books/details?sort={sort}");
-        response?.Aggregate((previous, current) =>
-        {
-            if (previous.TotalPages == null || current.TotalPages == null)
+        response?.Aggregate(
+            (previous, current) =>
             {
+                if (previous.TotalPages == null || current.TotalPages == null)
+                {
+                    return current;
+                }
+                Assert.IsTrue(previous.TotalPages <= current.TotalPages);
                 return current;
             }
-            Assert.IsTrue(previous.TotalPages <= current.TotalPages);
-            return current;
-        });
+        );
     }
 
     [TestMethod]
@@ -125,17 +99,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode("{");
@@ -148,17 +116,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "xxx", "asc" }));
@@ -171,17 +133,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages", "xxx" }));
@@ -194,17 +150,11 @@ public class SortTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var sort = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "TotalPages" }));

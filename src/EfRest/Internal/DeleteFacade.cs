@@ -1,20 +1,24 @@
-﻿using CloudCqs;
+﻿namespace EfRest.Internal;
+
+using CloudCqs;
 using CloudCqs.CommandFacade;
 
-namespace EfRest.Internal;
-
-internal class DeleteFacade<TKey> : CommandFacade<string>
-    where TKey : notnull
+internal class DeleteFacade<TKey> : CommandFacade<string> where TKey : notnull
 {
-    public DeleteFacade(CloudCqsOptions option,
-        (IQuery<string, TKey> jsonDeserializeQuery,
-        ICommand<TKey> deleteCommand) repository)
-        : base(option) => SetHandler(new Handler()
-            .Invoke("Invoke json deserializer to convert id value",
-                repository.jsonDeserializeQuery,
-                _ => UseRequest(),
-                p => p.response)
-            .Invoke("Invoke delete data",
-                repository.deleteCommand,
-                p => p));
+    public DeleteFacade(
+        CloudCqsOptions option,
+        (IQuery<string, TKey> JsonDeserializeQuery, ICommand<TKey> DeleteCommand) repository
+    ) : base(option)
+    {
+        var handler = new Handler()
+            .Invoke(
+                "Invoke json deserializer to convert id value",
+                repository.JsonDeserializeQuery,
+                _ => this.UseRequest(),
+                p => p.Response
+            )
+            .Invoke("Invoke delete data", repository.DeleteCommand, p => p);
+
+        this.SetHandler(handler);
+    }
 }

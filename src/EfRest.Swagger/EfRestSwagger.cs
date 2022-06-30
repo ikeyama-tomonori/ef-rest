@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿namespace EfRest.Swagger;
+
+using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,44 +9,50 @@ using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace EfRest.Swagger;
-
 public class EfRestSwagger
 {
-    private readonly JsonSerializerOptions _jsonSerializerOptions;
-    private readonly Dictionary<string, Type> _resourceTypes;
+    private readonly JsonSerializerOptions jsonSerializerOptions;
+    private readonly Dictionary<string, Type> resourceTypes;
 
     public EfRestSwagger(DbContext db, JsonSerializerOptions jsonSerializerOptions)
     {
-        _jsonSerializerOptions = jsonSerializerOptions;
-        _resourceTypes = db
-            .GetType()
+        this.jsonSerializerOptions = jsonSerializerOptions;
+        this.resourceTypes = db.GetType()
             .GetProperties()
-            .Where(pi => pi.PropertyType.IsGenericType
-                && pi.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+            .Where(
+                pi =>
+                    pi.PropertyType.IsGenericType
+                    && pi.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>)
+            )
             .Select(pi =>
             {
                 var type = pi.PropertyType.GetGenericArguments().First();
                 var jsonPropertyNameAttribute = pi.GetCustomAttribute<JsonPropertyNameAttribute>();
                 var name =
                     jsonPropertyNameAttribute == null
-                    ? _jsonSerializerOptions.PropertyNamingPolicy?
-                        .ConvertName(pi.Name)
-                        ?? pi.Name
-                    : jsonPropertyNameAttribute.Name;
+                        ? jsonSerializerOptions.PropertyNamingPolicy?.ConvertName(pi.Name)
+                            ?? pi.Name
+                        : jsonPropertyNameAttribute.Name;
                 return (name, type);
             })
             .ToDictionary(t => t.name, t => t.type);
     }
 
-    public OpenApiDocument GetSwagger(string documentName, string documentVersion, string? host = null, string? basePath = null)
+    public OpenApiDocument GetSwagger(
+        string documentName,
+        string documentVersion,
+        string? host = null,
+        string? basePath = null
+    )
     {
-        var entities = _resourceTypes;
+        var entities = this.resourceTypes;
         var generatorOptions = new SchemaGeneratorOptions
         {
             SupportNonNullableReferenceTypes = true,
         };
-        var serializerDataContractResolver = new JsonSerializerDataContractResolver(_jsonSerializerOptions);
+        var serializerDataContractResolver = new JsonSerializerDataContractResolver(
+            this.jsonSerializerOptions
+        );
         var schemaGenerator = new SchemaGenerator(generatorOptions, serializerDataContractResolver);
         var schemaRepository = new SchemaRepository();
 
@@ -56,328 +64,270 @@ public class EfRestSwagger
             {
                 Operations =
                 {
-                        [OperationType.Post] = new()
+                    [OperationType.Post] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_Create",
+                        RequestBody = new()
                         {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_Create",
-                            RequestBody = new()
+                            Content = { ["application/json"] = new() { Schema = schema } },
+                        },
+                        Responses = new()
+                        {
+                            [$"{(int)HttpStatusCode.Created}"] = new OpenApiResponse
                             {
+                                Description = $"{HttpStatusCode.Created}",
+                                Content = { ["application/json"] = new() { Schema = schema } },
+                            },
+                        },
+                    },
+                    [OperationType.Get] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_GetList",
+                        Parameters =
+                        {
+                            new()
+                            {
+                                Name = "filter",
+                                In = ParameterLocation.Query,
                                 Content =
                                 {
-                                    ["application/json"] = new ()
-                                        {
-                                            Schema = schema
-                                        }
-                                }
-                            },
-                            Responses = new()
-                            {
-                                [$"{(int)HttpStatusCode.Created}"] = new OpenApiResponse
-                                {
-                                    Description = $"{HttpStatusCode.Created}",
-                                    Content =
+                                    ["application/json"] = new()
                                     {
-                                        ["application/json"] = new ()
+                                        Schema = new() { Type = "object" },
+                                    },
+                                },
+                            },
+                            new()
+                            {
+                                Name = "sort",
+                                In = ParameterLocation.Query,
+                                Content =
+                                {
+                                    ["application/json"] = new()
+                                    {
+                                        Schema = new()
                                         {
-                                            Schema = schema
-                                        }
-                                    }
-                                }
-                            }
+                                            Type = "array",
+                                            Items = new() { Type = "string" },
+                                        },
+                                        Example = new OpenApiArray
+                                        {
+                                            new OpenApiString("id"),
+                                            new OpenApiString("asc"),
+                                        },
+                                    },
+                                },
+                            },
+                            new()
+                            {
+                                Name = "range",
+                                In = ParameterLocation.Query,
+                                Content =
+                                {
+                                    ["application/json"] = new()
+                                    {
+                                        Schema = new()
+                                        {
+                                            Type = "array",
+                                            Items = new() { Type = "integer", Format = "int32" },
+                                        },
+                                        Example = new OpenApiArray
+                                        {
+                                            new OpenApiInteger(0),
+                                            new OpenApiInteger(9),
+                                        },
+                                    },
+                                },
+                            },
+                            new()
+                            {
+                                Name = "embed",
+                                In = ParameterLocation.Query,
+                                Content =
+                                {
+                                    ["application/json"] = new()
+                                    {
+                                        Schema = new()
+                                        {
+                                            Type = "array",
+                                            Items = new() { Type = "string" },
+                                        },
+                                        Example = new OpenApiEmptyArray(),
+                                    },
+                                },
+                            },
                         },
-                        [OperationType.Get] = new()
+                        Responses = new()
                         {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_GetList",
-                            Parameters =
+                            [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
                             {
-                                new()
+                                Description = $"{HttpStatusCode.OK}",
+                                Content =
                                 {
-                                    Name = "filter",
-                                    In = ParameterLocation.Query,
-                                    Content =
+                                    ["application/json"] = new()
                                     {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "object"
-                                            }
-                                        }
-                                    }
-                                },
-                                new()
-                                {
-                                    Name = "sort",
-                                    In = ParameterLocation.Query,
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = new()
-                                                {
-                                                    Type = "string"
-                                                }
-                                            },
-                                            Example = new OpenApiArray
-                                            {
-                                                new OpenApiString("id"),
-                                                new OpenApiString("asc"),
-                                            }
-                                        }
-                                    }
-                                },
-                                new()
-                                {
-                                    Name = "range",
-                                    In = ParameterLocation.Query,
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = new()
-                                                {
-                                                    Type = "integer",
-                                                    Format = "int32"
-
-                                                }
-                                            },
-                                            Example = new OpenApiArray
-                                            {
-                                                new OpenApiInteger(0),
-                                                new OpenApiInteger(9),
-                                            }
-                                        }
-                                    }
-                                },
-                                new()
-                                {
-                                    Name = "embed",
-                                    In = ParameterLocation.Query,
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = new()
-                                                {
-                                                    Type = "string"
-                                                }
-                                            },
-                                            Example = new OpenApiEmptyArray()
-                                        }
-                                    }
+                                        Schema = new() { Type = "array", Items = schema },
+                                    },
                                 },
                             },
-                            Responses = new()
+                            [$"{(int)HttpStatusCode.PartialContent}"] = new OpenApiResponse
                             {
-                                [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
+                                Description = $"{HttpStatusCode.PartialContent}",
+                                Content =
                                 {
-                                    Description = $"{HttpStatusCode.OK}",
-                                    Content =
+                                    ["application/json"] = new()
                                     {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = schema
-                                            }
-                                        }
-                                    }
+                                        Schema = new() { Type = "array", Items = schema },
+                                    },
                                 },
-                                [$"{(int)HttpStatusCode.PartialContent}"] = new OpenApiResponse
-                                {
-                                    Description = $"{HttpStatusCode.PartialContent}",
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = schema
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                }
+                            },
+                        },
+                    },
+                },
             };
 
             var pathItemWithId = new OpenApiPathItem
             {
                 Operations =
                 {
-                        [OperationType.Get] = new()
+                    [OperationType.Get] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_GetOne",
+                        Parameters =
                         {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_GetOne",
-                            Parameters =
+                            new()
                             {
-                                new()
-                                {
-                                    Name = "id",
-                                    In = ParameterLocation.Path,
-                                    Required = true,
-                                    Schema = schemaGenerator.GenerateSchema(typeof(int), schemaRepository),
-                                },
-                                new()
-                                {
-                                    Name = "embed",
-                                    In = ParameterLocation.Query,
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = new()
-                                            {
-                                                Type = "array",
-                                                Items = new()
-                                                {
-                                                    Type = "string"
-                                                }
-                                            },
-                                            Example = new OpenApiEmptyArray()
-                                        }
-                                    }
-                                },
+                                Name = "id",
+                                In = ParameterLocation.Path,
+                                Required = true,
+                                Schema = schemaGenerator.GenerateSchema(
+                                    typeof(int),
+                                    schemaRepository
+                                ),
                             },
-                            Responses = new()
+                            new()
                             {
-                                [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
-                                {
-                                    Description = $"{HttpStatusCode.OK}",
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = schema
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        [OperationType.Put] = new()
-                        {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_Update",
-                            Parameters =
-                            {
-                                new()
-                                {
-                                    Name = "id",
-                                    In = ParameterLocation.Path,
-                                    Required = true,
-                                    Schema = schemaGenerator.GenerateSchema(typeof(int), schemaRepository),
-                                }
-                            },
-                            RequestBody = new()
-                            {
+                                Name = "embed",
+                                In = ParameterLocation.Query,
                                 Content =
                                 {
-                                    ["application/json"] = new ()
-                                        {
-                                            Schema = schema
-                                        }
-                                }
-                            },
-                            Responses = new()
-                            {
-                                [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
-                                {
-                                    Description = $"{HttpStatusCode.OK}",
-                                    Content =
+                                    ["application/json"] = new()
                                     {
-                                        ["application/json"] = new ()
+                                        Schema = new()
                                         {
-                                            Schema = schema
-                                        }
-                                    }
-                                }
-                            }
+                                            Type = "array",
+                                            Items = new() { Type = "string" },
+                                        },
+                                        Example = new OpenApiEmptyArray(),
+                                    },
+                                },
+                            },
                         },
-                        [OperationType.Patch] = new()
+                        Responses = new()
                         {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_Patch",
-                            Parameters =
+                            [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
                             {
-                                new()
-                                {
-                                    Name = "id",
-                                    In = ParameterLocation.Path,
-                                    Required = true,
-                                    Schema = schemaGenerator.GenerateSchema(typeof(int), schemaRepository),
-                                }
+                                Description = $"{HttpStatusCode.OK}",
+                                Content = { ["application/json"] = new() { Schema = schema } },
                             },
-                            RequestBody = new()
-                            {
-                                Content =
-                                {
-                                    ["application/json"] = new ()
-                                        {
-                                            Schema = new OpenApiSchema
-                                            {
-                                                Type = "object"
-                                            }
-                                        }
-                                }
-                            },
-                            Responses = new()
-                            {
-                                [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
-                                {
-                                    Description = $"{HttpStatusCode.OK}",
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = schema
-                                        }
-                                    }
-                                }
-                            }
                         },
-                        [OperationType.Delete] = new()
+                    },
+                    [OperationType.Put] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_Update",
+                        Parameters =
                         {
-                            Tags = tags,
-                            OperationId = $"{entity.Key}_Delete",
-                            Parameters =
+                            new()
                             {
-                                new()
-                                {
-                                    Name = "id",
-                                    In = ParameterLocation.Path,
-                                    Required = true,
-                                    Schema = schemaGenerator.GenerateSchema(typeof(int), schemaRepository),
-                                }
+                                Name = "id",
+                                In = ParameterLocation.Path,
+                                Required = true,
+                                Schema = schemaGenerator.GenerateSchema(
+                                    typeof(int),
+                                    schemaRepository
+                                ),
                             },
-                            Responses = new()
+                        },
+                        RequestBody = new()
+                        {
+                            Content = { ["application/json"] = new() { Schema = schema } },
+                        },
+                        Responses = new()
+                        {
+                            [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
                             {
-                                [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
+                                Description = $"{HttpStatusCode.OK}",
+                                Content = { ["application/json"] = new() { Schema = schema } },
+                            },
+                        },
+                    },
+                    [OperationType.Patch] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_Patch",
+                        Parameters =
+                        {
+                            new()
+                            {
+                                Name = "id",
+                                In = ParameterLocation.Path,
+                                Required = true,
+                                Schema = schemaGenerator.GenerateSchema(
+                                    typeof(int),
+                                    schemaRepository
+                                ),
+                            },
+                        },
+                        RequestBody = new()
+                        {
+                            Content =
+                            {
+                                ["application/json"] = new()
                                 {
-                                    Description = $"{HttpStatusCode.OK}",
-                                    Content =
-                                    {
-                                        ["application/json"] = new ()
-                                        {
-                                            Schema = schema
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                }
+                                    Schema = new OpenApiSchema { Type = "object" },
+                                },
+                            },
+                        },
+                        Responses = new()
+                        {
+                            [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
+                            {
+                                Description = $"{HttpStatusCode.OK}",
+                                Content = { ["application/json"] = new() { Schema = schema } },
+                            },
+                        },
+                    },
+                    [OperationType.Delete] = new()
+                    {
+                        Tags = tags,
+                        OperationId = $"{entity.Key}_Delete",
+                        Parameters =
+                        {
+                            new()
+                            {
+                                Name = "id",
+                                In = ParameterLocation.Path,
+                                Required = true,
+                                Schema = schemaGenerator.GenerateSchema(
+                                    typeof(int),
+                                    schemaRepository
+                                ),
+                            },
+                        },
+                        Responses = new()
+                        {
+                            [$"{(int)HttpStatusCode.OK}"] = new OpenApiResponse
+                            {
+                                Description = $"{HttpStatusCode.OK}",
+                                Content = { ["application/json"] = new() { Schema = schema } },
+                            },
+                        },
+                    },
+                },
             };
             return (entity.Key, pathItem, pathItemWithId);
         });
@@ -391,21 +341,13 @@ public class EfRestSwagger
 
         var swaggerDoc = new OpenApiDocument
         {
-            Info = new()
-            {
-                Title = documentName,
-                Version = documentVersion
-            },
+            Info = new() { Title = documentName, Version = documentVersion },
             Servers =
                 host == null && basePath == null
-                ? Array.Empty<OpenApiServer>()
-                : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
+                    ? Array.Empty<OpenApiServer>()
+                    : new[] { new OpenApiServer { Url = $"{host}{basePath}" } },
             Paths = paths,
-            Components = new()
-            {
-                Schemas = schemaRepository.Schemas
-            },
-
+            Components = new() { Schemas = schemaRepository.Schemas },
         };
 
         return swaggerDoc;

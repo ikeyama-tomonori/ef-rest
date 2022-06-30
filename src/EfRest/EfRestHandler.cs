@@ -1,46 +1,47 @@
-﻿using System;
-using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
+﻿namespace EfRest;
 
-namespace EfRest;
+using System.Net;
 
 public class EfRestHandler : DelegatingHandler
 {
-    private readonly EfRestServer _server;
-    private readonly Uri _baseAddress;
+    private readonly EfRestServer server;
+    private readonly Uri baseAddress;
 
     public EfRestHandler(EfRestServer server, Uri baseAddress) : base(new HttpClientHandler())
     {
-        _server = server;
-        _baseAddress = baseAddress;
+        this.server = server;
+        this.baseAddress = baseAddress;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (request.RequestUri == null || !_baseAddress.IsBaseOf(request.RequestUri))
+        if (request.RequestUri == null || !this.baseAddress.IsBaseOf(request.RequestUri))
         {
             return await base.SendAsync(request, cancellationToken);
         }
 
         var uri = request.RequestUri;
-        var relative = _baseAddress.MakeRelativeUri(uri);
+        var relative = this.baseAddress.MakeRelativeUri(uri);
         var pathAndQuery = relative.OriginalString;
         var requestBody =
-           request.Content == null
-           ? null
-           : await request.Content.ReadAsStringAsync(cancellationToken);
+            request.Content == null
+                ? null
+                : await request.Content.ReadAsStringAsync(cancellationToken);
 
-        var (statusCode, headers, body) =
-            await _server.Request(request.Method.Method, pathAndQuery, requestBody, cancellationToken);
+        var (statusCode, headers, body) = await this.server.Request(
+            request.Method.Method,
+            pathAndQuery,
+            requestBody,
+            cancellationToken
+        );
 
         var content = body == null ? null : new StringContent(body, System.Text.Encoding.UTF8);
         var httpResponse = new HttpResponseMessage((HttpStatusCode)statusCode)
         {
-            Content = content
+            Content = content,
         };
 
         foreach (var (key, value) in headers)
@@ -51,7 +52,7 @@ public class EfRestHandler : DelegatingHandler
             }
             else if (key == "Location")
             {
-                var basePath = _baseAddress.AbsolutePath;
+                var basePath = this.baseAddress.AbsolutePath;
                 if (basePath.Length == 0)
                 {
                     httpResponse.Headers.Add(key, value);
@@ -70,5 +71,3 @@ public class EfRestHandler : DelegatingHandler
         return httpResponse;
     }
 }
-
-

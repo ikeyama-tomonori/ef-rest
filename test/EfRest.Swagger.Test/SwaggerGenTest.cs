@@ -1,11 +1,8 @@
-﻿using System.IO;
-using System.Linq;
-using System.Text;
+﻿namespace EfRest.Swagger.Test;
+
 using System.Text.Json;
 using Microsoft.OpenApi.Writers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-namespace EfRest.Swagger.Test;
 
 [TestClass]
 public class SwaggerGenTest
@@ -20,7 +17,8 @@ public class SwaggerGenTest
             documentName: "test",
             documentVersion: "v1",
             host: "http://localhost:4000",
-            basePath: "/api");
+            basePath: "/api"
+        );
 
         Assert.IsNotNull(swagger.Paths.FirstOrDefault(p => p.Key == "/publishers"));
 
@@ -35,4 +33,3 @@ public class SwaggerGenTest
         Assert.IsTrue(buf.Any());
     }
 }
-

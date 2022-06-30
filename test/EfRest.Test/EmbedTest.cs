@@ -1,60 +1,44 @@
-﻿using System;
-using System.Linq;
+﻿namespace EfRest.Test;
+
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 using System.Web;
 using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EfRest.Test;
-
 [TestClass]
 public class EmbedTest
 {
-    public Genre[] Genres { get; }
-
     public EmbedTest()
     {
-        Genres = new[]
+        this.Genres = new[]
         {
-                new Genre
+            new Genre
+            {
+                Name = "Level1",
+                ChildGenres = new[]
                 {
-                    Name = "Level1",
-                    ChildGenres = new[]
+                    new Genre
                     {
-                        new Genre
-                        {
-                            Name = "Level2",
-                            ChildGenres = new[]
-                            {
-                                new Genre
-                                {
-                                    Name = "Level3"
-                                }
-                            },
-                            Books = new []
-                            {
-                                new Book
-                                {
-                                    Title = "Book Title",
-                                }
-                            }
-                        }
-                    }
-                }
-            };
+                        Name = "Level2",
+                        ChildGenres = new[] { new Genre { Name = "Level3" } },
+                        Books = new[] { new Book { Title = "Book Title", } },
+                    },
+                },
+            },
+        };
     }
+
+    public Genre[] Genres { get; }
 
     [TestMethod]
     public async Task Single_value()
     {
         var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
         };
 
         var db = new BookDbContext();
@@ -62,20 +46,19 @@ public class EmbedTest
         var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
-            JsonSerializerOptions = jsonSerializerOptions
+            JsonSerializerOptions = jsonSerializerOptions,
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
-
         var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "ParentGenre" }));
-        var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
+        var response = await client.GetFromJsonAsync<Genre[]>(
+            $"Genres?embed={embed}",
+            jsonSerializerOptions
+        );
         var level3 = response?.Single(g => g.Name == "Level3");
         Assert.IsNotNull(level3?.ParentGenre);
     }
@@ -85,7 +68,7 @@ public class EmbedTest
     {
         var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            ReferenceHandler = ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.Preserve,
         };
 
         var db = new BookDbContext();
@@ -93,19 +76,19 @@ public class EmbedTest
         var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
-            JsonSerializerOptions = jsonSerializerOptions
+            JsonSerializerOptions = jsonSerializerOptions,
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
         var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "child_genres" }));
-        var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
+        var response = await client.GetFromJsonAsync<Genre[]>(
+            $"Genres?embed={embed}",
+            jsonSerializerOptions
+        );
         var level3 = response?.Single(g => g.Name == "Level3");
         Assert.IsNotNull(level3?.ChildGenres);
     }
@@ -115,7 +98,7 @@ public class EmbedTest
     {
         var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            ReferenceHandler = ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.Preserve,
         };
 
         var db = new BookDbContext();
@@ -123,19 +106,21 @@ public class EmbedTest
         var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
-            JsonSerializerOptions = jsonSerializerOptions
+            JsonSerializerOptions = jsonSerializerOptions,
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
-        var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "child_genres.child_genres" }));
-        var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
+        var embed = HttpUtility.UrlEncode(
+            JsonSerializer.Serialize(new[] { "child_genres.child_genres" })
+        );
+        var response = await client.GetFromJsonAsync<Genre[]>(
+            $"Genres?embed={embed}",
+            jsonSerializerOptions
+        );
         var level1 = response?.Single(g => g.Name == "Level1");
         Assert.IsNotNull(level1?.ChildGenres?.First().ChildGenres);
     }
@@ -145,7 +130,7 @@ public class EmbedTest
     {
         var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            ReferenceHandler = ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.Preserve,
         };
 
         var db = new BookDbContext();
@@ -153,26 +138,21 @@ public class EmbedTest
         var server = new EfRestServer(db)
         {
             CloudCqsOptions = Options.Instance,
-            JsonSerializerOptions = jsonSerializerOptions
+            JsonSerializerOptions = jsonSerializerOptions,
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
         var embed = HttpUtility.UrlEncode(
-            JsonSerializer.Serialize(
-                new[]
-                {
-                        "ParentGenre",
-                        "child_genres.child_genres",
-                        "Books"
-                }));
-        var response = await client.GetFromJsonAsync<Genre[]>($"Genres?embed={embed}", jsonSerializerOptions);
+            JsonSerializer.Serialize(new[] { "ParentGenre", "child_genres.child_genres", "Books" })
+        );
+        var response = await client.GetFromJsonAsync<Genre[]>(
+            $"Genres?embed={embed}",
+            jsonSerializerOptions
+        );
         var level2 = response?.Single(g => g.Name == "Level2");
         Assert.IsNotNull(level2?.ParentGenre);
         Assert.IsNotNull(level2?.ChildGenres?.First().ChildGenres);
@@ -184,17 +164,11 @@ public class EmbedTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
         var embed = HttpUtility.UrlEncode("{}");
@@ -207,17 +181,11 @@ public class EmbedTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
         var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 1 }));
@@ -230,17 +198,11 @@ public class EmbedTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Genres.AddRangeAsync(Genres);
+        await db.Genres.AddRangeAsync(this.Genres);
         await db.SaveChangesAsync();
 
         var embed = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { "xxx" }));

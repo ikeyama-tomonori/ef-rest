@@ -1,9 +1,8 @@
-﻿using System;
+﻿namespace EfRest.Swagger;
+
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Writers;
-
-namespace EfRest.Swagger;
 
 internal class OpenApiEmptyArray : IOpenApiPrimitive
 {
@@ -17,4 +16,3 @@ internal class OpenApiEmptyArray : IOpenApiPrimitive
         writer.WriteEndArray();
     }
 }
-

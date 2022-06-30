@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace EfRest.Example.Model;
+﻿namespace EfRest.Example.Model;
 
 public class BookDetail
 {

@@ -1,60 +1,38 @@
-﻿using System;
-using System.Linq;
+﻿namespace EfRest.Test;
+
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Tasks;
 using System.Web;
 using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EfRest.Test;
-
 [TestClass]
 public class RangeTest
 {
-    public Book[] Books { get; }
-
     public RangeTest()
     {
-        Books = new[]
+        this.Books = new[]
         {
-                new Book
-                {
-                    Title = "Anna Karenina",
-                },
-                new Book
-                {
-                    Title = "War and Peace",
-                },
-                new Book
-                {
-                    Title = "Pride and Prejudice",
-                },
-                new Book
-                {
-                    Title = "Sense and Sensibility",
-                },
-            };
+            new Book { Title = "Anna Karenina", },
+            new Book { Title = "War and Peace", },
+            new Book { Title = "Pride and Prejudice", },
+            new Book { Title = "Sense and Sensibility", },
+        };
     }
+
+    public Book[] Books { get; }
 
     [TestMethod]
     public async Task Get_several_records()
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 1, 3 }));
@@ -70,18 +48,12 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
         client.DefaultRequestHeaders.Add("Range", "items=0-0");
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 0, 0 }));
@@ -97,17 +69,11 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 3, 3 }));
@@ -123,17 +89,11 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 0, 4 }));
@@ -149,17 +109,11 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 4, 4 }));
@@ -175,17 +129,11 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode("{}");
@@ -198,17 +146,11 @@ public class RangeTest
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
-        await db.Books.AddRangeAsync(Books);
+        await db.Books.AddRangeAsync(this.Books);
         await db.SaveChangesAsync();
 
         var range = HttpUtility.UrlEncode(JsonSerializer.Serialize(new[] { 4 }));

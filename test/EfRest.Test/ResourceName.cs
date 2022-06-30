@@ -1,12 +1,9 @@
-﻿using System;
-using System.Net.Http;
+﻿namespace EfRest.Test;
+
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Tasks;
 using EfRest.Example.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-namespace EfRest.Test;
 
 [TestClass]
 public class ResourceName
@@ -16,15 +13,9 @@ public class ResourceName
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
         var response = await client.GetFromJsonAsync<Book[]>("Books");
         Assert.IsNotNull(response);
@@ -35,15 +26,9 @@ public class ResourceName
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
         var response = await client.GetFromJsonAsync<BookDetail[]>("books/details");
         Assert.IsNotNull(response);
@@ -59,14 +44,11 @@ public class ResourceName
             CloudCqsOptions = Options.Instance,
             JsonSerializerOptions = new(JsonSerializerDefaults.General)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            }
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            },
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
         var response = await client.GetFromJsonAsync<Book[]>("books");
         Assert.IsNotNull(response);
@@ -82,14 +64,11 @@ public class ResourceName
             CloudCqsOptions = Options.Instance,
             JsonSerializerOptions = new(JsonSerializerDefaults.General)
             {
-                PropertyNameCaseInsensitive = true
-            }
+                PropertyNameCaseInsensitive = true,
+            },
         };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
         var response = await client.GetFromJsonAsync<Book[]>("books");
         Assert.IsNotNull(response);
@@ -100,15 +79,9 @@ public class ResourceName
     {
         var db = new BookDbContext();
         var baseAddress = new Uri("http://localhost/api/");
-        var server = new EfRestServer(db)
-        {
-            CloudCqsOptions = Options.Instance,
-        };
+        var server = new EfRestServer(db) { CloudCqsOptions = Options.Instance, };
         var handler = new EfRestHandler(server, baseAddress);
-        using var client = new HttpClient(handler)
-        {
-            BaseAddress = baseAddress
-        };
+        using var client = new HttpClient(handler) { BaseAddress = baseAddress };
 
         var response = await client.GetFromJsonAsync<Book[]>("Books/");
         Assert.IsNotNull(response);
